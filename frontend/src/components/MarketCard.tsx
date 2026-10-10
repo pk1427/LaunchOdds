@@ -23,15 +23,18 @@ import {
 import { buildEvidence } from "@/lib/metadata";
 import { fetchItem, isUsableStory } from "@/lib/hn";
 import { fmtMon } from "@/lib/format";
+import { impliedProb } from "@/lib/payout";
+import { GlassCard, Pill } from "./ui";
 
-const PHASE_STYLE: Record<string, string> = {
-  betting: "bg-yes/20 text-yes",
-  locked: "bg-yellow-500/20 text-yellow-300",
-  awaiting: "bg-monad/20 text-monad",
-  refundable: "bg-orange-500/20 text-orange-300",
-  resolvedYes: "bg-yes/20 text-yes",
-  resolvedNo: "bg-no/20 text-no",
-  refunded: "bg-white/10 text-gray-300",
+type PhaseTone = "yes" | "no" | "warn" | "accent" | "default";
+const PHASE_TONE: Record<string, PhaseTone> = {
+  betting: "yes",
+  locked: "warn",
+  awaiting: "accent",
+  refundable: "warn",
+  resolvedYes: "yes",
+  resolvedNo: "no",
+  refunded: "default",
 };
 
 export function MarketCard({
@@ -147,63 +150,85 @@ export function MarketCard({
 
   const holdsYes = position && position.amount > 0n && position.isYes;
   const holdsNo = position && position.amount > 0n && !position.isYes;
+  const settled = phase === "resolvedYes" || phase === "resolvedNo";
+  const live = settled ? Number(market.finalScore) : (story?.score ?? Number(market.baselineScore));
+  const target = Number(market.targetScore);
+  const baseline = Number(market.baselineScore);
+  const trackPct = Math.max(0, Math.min(100, (live / Math.max(target, 1)) * 100));
+  const basePct = Math.max(0, Math.min(100, (baseline / Math.max(target, 1)) * 100));
+  const yesOdds = impliedProb(yes, no);
 
   return (
-    <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+    <GlassCard className="p-4">
       <div className="flex items-center justify-between gap-2">
-        <span className="font-mono text-sm text-gray-400">#{id.toString()}</span>
-        <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${PHASE_STYLE[phase]}`}>
+        <Pill tone={PHASE_TONE[phase]} dot={phase === "betting"}>
           {PHASE_LABEL[phase]}
+        </Pill>
+        <span className="font-mono text-xs tabular-nums text-slate-400">
+          #{id.toString()} ·{" "}
+          {phase === "betting" || phase === "locked"
+            ? countdown(Number(market.expiry), nowSec)
+            : "closed"}
         </span>
       </div>
-      <a
-        href={`https://news.ycombinator.com/item?id=${storyId}`}
-        target="_blank"
-        rel="noreferrer"
-        className="mt-1 block font-semibold text-white hover:text-monad"
+      <Link
+        href={`/markets/${id.toString()}`}
+        className="mt-2 block font-bold leading-snug text-white hover:text-[#b7a8ff]"
       >
         {story?.title ?? `HN story ${storyId}`}
-      </a>
-      <div className="mt-0.5 text-sm text-gray-400">
+      </Link>
+      <div className="mt-0.5 text-sm text-slate-400">
         Will it {buildQ(market)}?{" "}
         <span className="font-mono text-xs">
           Created by {market.creator.slice(0, 6)}…{market.creator.slice(-4)}
-        </span>{" "}
-        <Link href={`/markets/${id.toString()}`} className="text-xs text-monad underline">
-          Details
-        </Link>
-      </div>
-      <div className="mt-2 flex gap-4 font-mono text-sm">
-        <span>
-          base <b>{market.baselineScore.toString()}</b>
-        </span>
-        <span>
-          {phase === "resolvedYes" || phase === "resolvedNo" ? "final" : "live"}{" "}
-          <b>{story?.score ?? (phase.startsWith("resolved") ? market.finalScore.toString() : "…")}</b>
-        </span>
-        <span>
-          target <b>{market.targetScore.toString()}</b>
         </span>
       </div>
-      <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10">
+
+      <div className="mt-3">
+        <div className="flex justify-between font-mono text-xs tabular-nums text-slate-400">
+          <span>base {baseline}</span>
+          <span className="text-base font-bold text-white">
+            {settled ? "final" : "live"} {live}
+          </span>
+          <span>target {target}</span>
+        </div>
+        <div className="relative mt-1 h-2 overflow-hidden rounded-full bg-white/10">
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-azure to-monad"
+            style={{ width: `${trackPct}%` }}
+          />
+          <div
+            className="absolute top-0 h-full w-0.5 bg-white/70"
+            style={{ left: `${basePct}%` }}
+            title={`Baseline ${baseline}`}
+          />
+        </div>
+      </div>
+
+      <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10">
         <div className="h-full bg-yes" style={{ width: `${yesPct}%` }} />
       </div>
       <div className="mt-1 flex justify-between font-mono text-xs tabular-nums">
         <span className="text-yes">
-          YES {fmtMon(yes)} ({market.yesPositions.toString()})
+          YES {fmtMon(yes)}
+          {yesOdds !== null ? ` · ${(yesOdds * 100).toFixed(0)}%` : ""} (
+          {market.yesPositions.toString()})
         </span>
         <span className="text-no">
-          NO {fmtMon(no)} ({market.noPositions.toString()})
+          NO {fmtMon(no)}
+          {yesOdds !== null ? ` · ${((1 - yesOdds) * 100).toFixed(0)}%` : ""} (
+          {market.noPositions.toString()})
         </span>
       </div>
-      <div className="mt-1 font-mono text-xs tabular-nums text-gray-400">
+      <div className="mt-1 font-mono text-xs tabular-nums text-slate-400">
+        pool {fmtMon(total)} MON ·{" "}
         {phase === "betting" || phase === "locked"
           ? `closes in ${countdown(Number(market.expiry), nowSec)}`
-          : `expired · liability ${fmtMon(market.remainingLiability)} MON`}
+          : `liability ${fmtMon(market.remainingLiability)} MON`}
       </div>
 
       {address && position && position.amount > 0n && (
-        <div className="mt-2 text-xs text-gray-300">
+        <div className="mt-2 text-xs text-slate-300">
           Your position: {fmtMon(position.amount)} MON on{" "}
           {position.isYes ? "YES" : "NO"}
           {position.claimed ? " (claimed)" : ""}
@@ -220,7 +245,7 @@ export function MarketCard({
               <button
                 key={q}
                 onClick={() => setStake(q)}
-                className={`rounded px-2 py-1 font-mono text-xs ${stake === q ? "bg-monad text-white" : "bg-white/10 text-gray-300"}`}
+                className={`rounded-lg px-2 py-1 font-mono text-xs tabular-nums ${stake === q ? "bg-monad text-white" : "bg-white/10 text-slate-300"}`}
               >
                 {q}
               </button>
@@ -229,7 +254,7 @@ export function MarketCard({
               value={stake}
               onChange={(e) => setStake(e.target.value)}
               inputMode="decimal"
-              className="w-24 rounded bg-white/10 px-2 py-1 font-mono text-xs"
+              className="w-24 rounded-lg bg-white/10 px-2 py-1 font-mono text-xs tabular-nums"
               aria-label="Stake in MON"
             />
           </div>
@@ -238,7 +263,7 @@ export function MarketCard({
               onClick={() => bet(true)}
               disabled={!!holdsNo}
               title={holdsNo ? "Contract rejects opposing positions" : undefined}
-              className="flex-1 rounded-lg bg-yes px-3 py-2 font-semibold text-black hover:brightness-110 disabled:opacity-40"
+              className="flex-1 rounded-xl bg-yes px-3 py-2 font-semibold text-black hover:brightness-110 disabled:opacity-40"
             >
               Bet YES
             </button>
@@ -246,7 +271,7 @@ export function MarketCard({
               onClick={() => bet(false)}
               disabled={!!holdsYes}
               title={holdsYes ? "Contract rejects opposing positions" : undefined}
-              className="flex-1 rounded-lg bg-no px-3 py-2 font-semibold text-white hover:brightness-110 disabled:opacity-40"
+              className="flex-1 rounded-xl bg-no px-3 py-2 font-semibold text-white hover:brightness-110 disabled:opacity-40"
             >
               Bet NO
             </button>
@@ -259,7 +284,7 @@ export function MarketCard({
           onClick={claim}
           disabled={!canClaim}
           title={!canClaim ? "No claimable amount for your position" : undefined}
-          className="mt-3 w-full rounded-lg bg-monad px-3 py-2 font-semibold text-white hover:brightness-110 disabled:opacity-40"
+          className="mt-3 w-full rounded-xl bg-monad px-3 py-2 font-semibold text-white hover:brightness-110 disabled:opacity-40"
         >
           {canClaim
             ? phase === "refunded"
@@ -276,7 +301,7 @@ export function MarketCard({
       {address && phase === "refundable" && (
         <button
           onClick={triggerRefund}
-          className="mt-3 w-full rounded-lg bg-orange-500 px-3 py-2 font-semibold text-black hover:brightness-110"
+          className="mt-3 w-full rounded-xl bg-yellow-500/80 px-3 py-2 font-semibold text-black hover:brightness-110"
         >
           Trigger refunds
         </button>
@@ -288,12 +313,19 @@ export function MarketCard({
         canResolve === true && (
           <button
             onClick={resolveLive}
-            className="mt-2 w-full rounded-lg border border-monad px-3 py-2 text-sm text-monad hover:bg-monad/10"
+            className="mt-2 w-full rounded-xl border border-monad/60 px-3 py-2 text-sm text-[#b7a8ff] hover:bg-monad/10"
           >
             Resolve with live HN score (resolver only)
           </button>
         )}
-    </div>
+
+      <Link
+        href={`/markets/${id.toString()}`}
+        className="mt-3 inline-block text-sm font-semibold text-azure hover:underline"
+      >
+        View market →
+      </Link>
+    </GlassCard>
   );
 }
 
