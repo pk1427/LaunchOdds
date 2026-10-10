@@ -1,14 +1,16 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useAccount, useReadContracts } from "wagmi";
 import type { Address } from "viem";
 import { launchOddsAbi } from "@/lib/abi";
 import { APP_CHAIN_ID, CONTRACT_ADDRESS, isAddressSet } from "@/lib/config";
-import { useAllMarkets, useMarketTx, useNow } from "@/lib/hooks";
+import { useAllMarkets, useMarketTx } from "@/lib/hooks";
 import { Status } from "@/lib/market";
 import { fmtMon } from "@/lib/format";
+import { RequireWallet } from "@/components/RequireWallet";
+import { Button, EmptyState, Skeleton, StatCard, Tabs } from "@/components/ui";
 
 interface Row {
   id: bigint;
@@ -22,12 +24,19 @@ interface Row {
 }
 
 export default function PortfolioPage() {
+  return (
+    <RequireWallet reason="Your positions live on-chain — connect to load them.">
+      <PortfolioBody />
+    </RequireWallet>
+  );
+}
+
+function PortfolioBody() {
   const { address } = useAccount();
   const { markets, isLoading, isError, refetch } = useAllMarkets(50);
-  const nowSec = useNow(5000);
+  const [tab, setTab] = useState<"active" | "claimable" | "claimed" | "lost">("active");
   const tx = useMarketTx();
 
-  // Batched reads: getPosition + previewClaim per market (multicall).
   const contracts = useMemo(() => {
     if (!isAddressSet(CONTRACT_ADDRESS) || !address) return [];
     return markets.flatMap((m) => [
@@ -74,7 +83,6 @@ export default function PortfolioPage() {
           : pos.claimed
             ? "claimed"
             : "lost";
-      void nowSec;
       out.push({
         id: m.id,
         side: pos.isYes ? "YES" : "NO",
@@ -87,11 +95,14 @@ export default function PortfolioPage() {
       });
     });
     return out;
-  }, [batch.data, markets, nowSec]);
+  }, [batch.data, markets]);
 
   const claimableTotal = rows
     .filter((r) => r.group === "claimable")
     .reduce((a, r) => a + r.expected, 0n);
+  const stakedTotal = rows.reduce((a, r) => a + r.stake, 0n);
+  const openCount = rows.filter((r) => r.group === "active").length;
+  const visible = rows.filter((r) => r.group === tab);
 
   const claim = (id: bigint) => {
     if (!CONTRACT_ADDRESS) return;
@@ -112,106 +123,106 @@ export default function PortfolioPage() {
 
   if (!isAddressSet(CONTRACT_ADDRESS)) {
     return (
-      <div className="rounded-xl border border-yellow-500/40 bg-yellow-500/10 p-6 text-center">
+      <div className="rounded-2xl border border-yellow-500/40 bg-yellow-500/10 p-6 text-center">
         <p className="font-semibold text-yellow-300">Contract address not set</p>
       </div>
     );
   }
-  if (!address) {
-    return (
-      <div className="rounded-xl border border-white/10 bg-white/5 p-6 text-center text-gray-300">
-        Connect your wallet to see your portfolio.
-      </div>
-    );
-  }
-
-  const groups: { key: Row["group"]; label: string }[] = [
-    { key: "active", label: "Active" },
-    { key: "claimable", label: "Claimable" },
-    { key: "claimed", label: "Claimed" },
-    { key: "lost", label: "Lost" },
-  ];
 
   return (
     <div>
-      <h2 className="text-xl font-bold">Portfolio</h2>
+      <h2 className="text-2xl font-black tracking-tight">Portfolio</h2>
       {claimableTotal > 0n && (
-        <div className="mt-2 rounded-xl border border-yes/40 bg-yes/10 p-4 font-mono tabular-nums">
+        <div className="mt-3 rounded-2xl border border-yes/40 bg-yes/10 p-4 font-mono tabular-nums">
           You can claim <b>{fmtMon(claimableTotal)} MON</b>
         </div>
       )}
+      <div className="mt-3 grid gap-3 sm:grid-cols-3">
+        <StatCard label="Total staked" value={`${fmtMon(stakedTotal)} MON`} />
+        <StatCard label="Claimable" value={`${fmtMon(claimableTotal)} MON`} />
+        <StatCard label="Open positions" value={openCount.toString()} />
+      </div>
+
+      <div className="mt-4">
+        <Tabs
+          ariaLabel="Position groups"
+          value={tab}
+          onChange={setTab}
+          options={[
+            { value: "active", label: "Active" },
+            { value: "claimable", label: "Claimable" },
+            { value: "claimed", label: "Claimed" },
+            { value: "lost", label: "Lost" },
+          ]}
+        />
+      </div>
+
       {isLoading || batch.isLoading ? (
-        <div className="mt-3 grid animate-pulse gap-2">
+        <div className="mt-3 grid gap-2">
           {[0, 1, 2].map((i) => (
-            <div key={i} className="h-16 rounded-xl bg-white/5" />
+            <Skeleton key={i} className="h-16" />
           ))}
         </div>
       ) : isError || batch.isError ? (
-        <div className="mt-3 rounded-xl border border-no/40 bg-no/10 p-4 text-sm">
+        <div className="mt-3 rounded-2xl border border-no/40 bg-no/10 p-4 text-sm">
           <p className="text-no">RPC error while loading positions.</p>
-          <button
+          <Button
+            variant="secondary"
+            size="sm"
+            className="mt-2"
             onClick={() => {
               void refetch();
               void batch.refetch();
             }}
-            className="mt-2 rounded-lg bg-white/10 px-3 py-1.5 hover:bg-white/20"
           >
             Retry
-          </button>
+          </Button>
         </div>
-      ) : rows.length === 0 ? (
-        <div className="mt-3 rounded-xl border border-white/10 bg-white/5 p-6 text-center text-gray-400">
-          No positions in the newest 50 markets yet.
+      ) : visible.length === 0 ? (
+        <div className="mt-3">
+          <EmptyState
+            title={rows.length === 0 ? "No positions yet" : `Nothing ${tab}`}
+            body={
+              rows.length === 0
+                ? "No positions in the newest 50 markets. Find a launch and take a side."
+                : undefined
+            }
+          />
         </div>
       ) : (
-        groups.map(
-          (g) =>
-            rows.some((r) => r.group === g.key) && (
-              <div key={g.key} className="mt-4">
-                <h3 className="mb-1 text-sm font-bold uppercase tracking-wide text-gray-400">
-                  {g.label}
-                </h3>
-                <div className="grid gap-2">
-                  {rows
-                    .filter((r) => r.group === g.key)
-                    .map((r) => (
-                      <div
-                        key={r.id.toString()}
-                        className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/10 bg-white/5 p-3"
-                      >
-                        <div className="text-sm">
-                          <Link
-                            href={`/markets/${r.id.toString()}`}
-                            className="font-bold hover:text-monad"
-                          >
-                            Market #{r.id.toString()}
-                          </Link>
-                          <span className="ml-2 font-mono tabular-nums text-gray-300">
-                            {fmtMon(r.stake)} on {r.side}
-                          </span>
-                          {r.group === "claimable" && (
-                            <span className="ml-2 font-mono tabular-nums text-yes">
-                              → {fmtMon(r.expected)}
-                            </span>
-                          )}
-                        </div>
-                        {r.group === "claimable" && (
-                          <button
-                            onClick={() => claim(r.id)}
-                            className="rounded-lg bg-monad px-3 py-1.5 text-sm font-semibold text-white hover:brightness-110"
-                          >
-                            Claim {fmtMon(r.expected)}
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                </div>
+        <div className="mt-3 grid gap-2">
+          {visible.map((r) => (
+            <div
+              key={r.id.toString()}
+              className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.04] p-3"
+            >
+              <div className="text-sm">
+                <Link
+                  href={`/markets/${r.id.toString()}`}
+                  className="font-bold hover:text-[#b7a8ff]"
+                >
+                  Market #{r.id.toString()}
+                </Link>
+                <span className="ml-2 font-mono tabular-nums text-slate-300">
+                  {fmtMon(r.stake)} on {r.side}
+                </span>
+                {r.group === "claimable" && (
+                  <span className="ml-2 font-mono tabular-nums text-yes">
+                    → {fmtMon(r.expected)}
+                  </span>
+                )}
               </div>
-            ),
-        )
+              {r.group === "claimable" && (
+                <Button variant="primary" size="sm" onClick={() => claim(r.id)}>
+                  Claim {fmtMon(r.expected)}
+                </Button>
+              )}
+            </div>
+          ))}
+        </div>
       )}
-      <p className="mt-3 text-xs text-gray-500">
-        Showing positions across the newest 50 markets. Open a market for its live phase and countdown.
+      <p className="mt-3 text-xs text-slate-500">
+        Showing positions across the newest 50 markets.
       </p>
     </div>
   );

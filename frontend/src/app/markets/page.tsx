@@ -8,20 +8,23 @@ import { APP_CHAIN_ID, CONTRACT_ADDRESS, isAddressSet } from "@/lib/config";
 import { useAllMarkets, useChainParams, useNow } from "@/lib/hooks";
 import { Status, phaseOf } from "@/lib/market";
 import { MarketsPanel } from "@/components/MarketsPanel";
+import { ConnectModal } from "@/components/ConnectModal";
+import { Button, EmptyState, Skeleton, Tabs } from "@/components/ui";
 
 type Tab = "open" | "resolving" | "settled" | "mine";
-const TABS: Tab[] = ["open", "resolving", "settled", "mine"];
+type Sort = "newest" | "closing" | "pool";
 const PAGE = 20;
 
 export default function MarketsPage() {
   const [tab, setTab] = useState<Tab>("open");
+  const [sort, setSort] = useState<Sort>("newest");
   const [page, setPage] = useState(0);
+  const [connectOpen, setConnectOpen] = useState(false);
   const { address } = useAccount();
   const { markets, count, isLoading, isError, refetch } = useAllMarkets(200);
   const params = useChainParams();
   const nowSec = useNow(5000);
 
-  // Batched position reads for the "Mine" tab (one multicall under the hood).
   const posQuery = useReadContracts({
     contracts: markets.map((m) => ({
       address: CONTRACT_ADDRESS as Address,
@@ -44,7 +47,7 @@ export default function MarketsPage() {
   }, [posQuery.data, markets]);
 
   const filtered = useMemo(() => {
-    return markets.filter((m) => {
+    const list = markets.filter((m) => {
       const phase = phaseOf(m, nowSec, params.lockWindow, params.gracePeriod);
       if (tab === "open") return phase === "betting" || phase === "locked";
       if (tab === "resolving") return phase === "awaiting" || phase === "refundable";
@@ -59,7 +62,17 @@ export default function MarketsPage() {
         hasPosition.has(m.id.toString())
       );
     });
-  }, [markets, tab, nowSec, params.lockWindow, params.gracePeriod, address, hasPosition]);
+    const by =
+      sort === "closing"
+        ? (a: (typeof list)[number], b: (typeof list)[number]) =>
+            Number(a.expiry) - Number(b.expiry)
+        : sort === "pool"
+          ? (a: (typeof list)[number], b: (typeof list)[number]) =>
+              b.totalPool > a.totalPool ? 1 : b.totalPool < a.totalPool ? -1 : 0
+          : (a: (typeof list)[number], b: (typeof list)[number]) =>
+              b.id > a.id ? 1 : b.id < a.id ? -1 : 0;
+    return [...list].sort(by);
+  }, [markets, tab, sort, nowSec, params.lockWindow, params.gracePeriod, address, hasPosition]);
 
   const pages = Math.max(1, Math.ceil(filtered.length / PAGE));
   const safePage = Math.min(page, pages - 1);
@@ -67,7 +80,7 @@ export default function MarketsPage() {
 
   if (!isAddressSet(CONTRACT_ADDRESS)) {
     return (
-      <div className="rounded-xl border border-yellow-500/40 bg-yellow-500/10 p-6 text-center">
+      <div className="rounded-2xl border border-yellow-500/40 bg-yellow-500/10 p-6 text-center">
         <p className="font-semibold text-yellow-300">Contract address not set</p>
       </div>
     );
@@ -75,25 +88,55 @@ export default function MarketsPage() {
 
   return (
     <div>
-      <h2 className="text-xl font-bold">Markets ({count})</h2>
-      <div className="mb-3 mt-2 flex gap-1 text-sm">
-        {TABS.map((t) => (
-          <button
-            key={t}
-            onClick={() => {
-              setTab(t);
-              setPage(0);
-            }}
-            className={`rounded-lg px-3 py-1.5 font-semibold capitalize ${
-              tab === t ? "bg-monad text-white" : "bg-white/10 text-gray-300 hover:bg-white/20"
-            }`}
+      <h2 className="text-2xl font-black tracking-tight">Markets ({count})</h2>
+      <div className="mb-3 mt-3 flex flex-wrap items-center justify-between gap-2">
+        <Tabs<Tab>
+          ariaLabel="Market filters"
+          value={tab}
+          onChange={(t) => {
+            setTab(t);
+            setPage(0);
+          }}
+          options={[
+            { value: "open", label: "Open" },
+            { value: "resolving", label: "Resolving" },
+            { value: "settled", label: "Settled" },
+            { value: "mine", label: "Mine" },
+          ]}
+        />
+        <label className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.14em] text-slate-400">
+          Sort
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as Sort)}
+            className="rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-slate-200"
           >
-            {t === "mine" ? "Mine" : t}
-          </button>
-        ))}
+            <option value="newest">Newest</option>
+            <option value="closing">Closing soon</option>
+            <option value="pool">Biggest pool</option>
+          </select>
+        </label>
       </div>
-      {isLoading ? (
-        <SkeletonList />
+
+      {tab === "mine" && !address ? (
+        <EmptyState
+          title="Connect to see your markets"
+          body="The Mine tab shows markets you created or hold a position in."
+          action={
+            <>
+              <Button variant="primary" onClick={() => setConnectOpen(true)}>
+                Connect wallet
+              </Button>
+              <ConnectModal open={connectOpen} onClose={() => setConnectOpen(false)} />
+            </>
+          }
+        />
+      ) : isLoading ? (
+        <div className="grid gap-3">
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} className="h-48" />
+          ))}
+        </div>
       ) : (
         <>
           <MarketsPanel
@@ -111,38 +154,30 @@ export default function MarketsPage() {
             nowSec={nowSec}
           />
           {pages > 1 && (
-            <div className="mt-3 flex items-center justify-center gap-2 text-sm">
-              <button
-                onClick={() => setPage(Math.max(0, safePage - 1))}
+            <div className="mt-4 flex items-center justify-center gap-2 text-sm">
+              <Button
+                variant="secondary"
+                size="sm"
                 disabled={safePage === 0}
-                className="rounded-lg bg-white/10 px-3 py-1.5 disabled:opacity-40"
+                onClick={() => setPage(Math.max(0, safePage - 1))}
               >
                 ← Prev
-              </button>
-              <span className="font-mono tabular-nums">
+              </Button>
+              <span className="font-mono tabular-nums text-slate-400">
                 {safePage + 1} / {pages}
               </span>
-              <button
-                onClick={() => setPage(Math.min(pages - 1, safePage + 1))}
+              <Button
+                variant="secondary"
+                size="sm"
                 disabled={safePage >= pages - 1}
-                className="rounded-lg bg-white/10 px-3 py-1.5 disabled:opacity-40"
+                onClick={() => setPage(Math.min(pages - 1, safePage + 1))}
               >
                 Next →
-              </button>
+              </Button>
             </div>
           )}
         </>
       )}
-    </div>
-  );
-}
-
-function SkeletonList() {
-  return (
-    <div className="grid animate-pulse gap-3">
-      {[0, 1, 2].map((i) => (
-        <div key={i} className="h-48 rounded-xl bg-white/5" />
-      ))}
     </div>
   );
 }
