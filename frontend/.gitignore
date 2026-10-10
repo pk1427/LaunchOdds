@@ -5,3 +5,7 @@ out/
 .env.*
 !.env.example
 next-env.d.ts
+*.tsbuildinfo
+*.pem
+*.keystore
+keystore/
