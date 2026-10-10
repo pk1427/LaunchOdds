@@ -2,7 +2,6 @@
 
 A prediction-market application for Hacker News story-score milestones on Monad. People create markets around a story's future score, take YES or NO positions denominated in MON, track the outcome, and settle positions under the market's on-chain rules.
 
-[![GitHub](https://img.shields.io/badge/github-pk1427%2FLaunchOdds-blue?logo=github)](https://github.com/pk1427/StoryScore)
 [![Monad Testnet](https://img.shields.io/badge/network-Monad%20Testnet-200052)](https://docs.monad.xyz/developer-essentials/testnet.md)
 [![Next.js](https://img.shields.io/badge/frontend-Next.js%2015-black?logo=next.js)](https://nextjs.org)
 
