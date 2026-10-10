@@ -6,15 +6,15 @@
   --bg: #05070d;
   --panel: rgba(255, 255, 255, 0.04);
   --border: rgba(255, 255, 255, 0.08);
-  --accent: #836ef9;
-  --accent-blue: #4f9bff;
-  --yes: #34d399;
-  --no: #fb7185;
+  --accent: #2563eb;
+  --accent-blue: #0891b2;
+  --yes: #16a34a;
+  --no: #dc2626;
   --warn: #fbbf24;
   --muted: #94a3b8;
-  --font-sans: "Space Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
-    Roboto, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas,
+  --font-sans: "Avenir Next", Avenir, "Segoe UI", ui-sans-serif, system-ui,
+    sans-serif;
+  --font-mono: "SF Mono", "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas,
     monospace;
 }
 
@@ -24,19 +24,31 @@ html {
 
 body {
   background-color: var(--bg);
-  background-image:
-    radial-gradient(60rem 30rem at 15% -5%, rgba(131, 110, 249, 0.14), transparent 60%),
-    radial-gradient(50rem 26rem at 85% 0%, rgba(79, 155, 255, 0.1), transparent 60%),
-    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
-  background-size: auto, auto, 44px 44px, 44px 44px;
   color: #e2e8f0;
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
 }
 
+/* Native controls do not inherit the body font by default — keep them on the
+   same primary (navbar) family as the rest of the app. */
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+@layer components {
+  /* Shared section-label style: sans eyebrow used for card/section headings
+     across Markets, Create, Portfolio, and market detail. Technical numeric
+     data (scores, MON, addresses, hashes, timestamps) stays `font-mono`. */
+  .type-eyebrow {
+    @apply text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400;
+  }
+}
+
 ::selection {
-  background: rgba(131, 110, 249, 0.4);
+  background: rgba(37, 99, 235, 0.45);
 }
 
 :focus-visible {

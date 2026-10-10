@@ -1,11 +1,20 @@
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+"use client";
+
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ButtonHTMLAttributes,
+  type ReactNode,
+} from "react";
+import { createPortal } from "react-dom";
 
 type Variant = "primary" | "secondary" | "ghost" | "danger";
 type Size = "sm" | "md" | "lg";
 
 const VARIANTS: Record<Variant, string> = {
   primary:
-    "bg-[#3b5bff]/25 text-white border border-[#4F9BFF]/60 hover:bg-[#3b5bff]/40",
+    "border border-monad bg-monad text-white hover:bg-blue-700",
   secondary: "bg-white/5 text-slate-100 border border-white/10 hover:bg-white/10",
   ghost: "text-slate-300 hover:bg-white/5 border border-transparent",
   danger: "bg-no/15 text-no border border-no/40 hover:bg-no/25",
@@ -43,7 +52,7 @@ export function GlassCard({
 }) {
   return (
     <div
-      className={`rounded-2xl border border-white/[0.08] bg-white/[0.04] p-5 backdrop-blur transition hover:border-white/[0.14] hover:shadow-[0_0_40px_-12px_rgba(131,110,249,0.45)] ${className}`}
+      className={`rounded-2xl border border-white/[0.08] bg-white/[0.04] p-5 transition hover:border-white/[0.14] ${className}`}
     >
       {children}
     </div>
@@ -61,7 +70,7 @@ export function StatCard({
 }) {
   return (
     <GlassCard className="p-4">
-      <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-slate-400">
+      <p className="type-eyebrow">
         {label}
       </p>
       <p className="mt-1 font-mono text-2xl font-bold tabular-nums text-white">{value}</p>
@@ -72,7 +81,7 @@ export function StatCard({
 
 const BADGE: Record<string, string> = {
   default: "bg-white/10 text-slate-300",
-  accent: "bg-monad/20 text-[#b7a8ff]",
+  accent: "bg-monad/15 text-blue-300",
   yes: "bg-yes/15 text-yes",
   no: "bg-no/15 text-no",
   warn: "bg-yellow-500/15 text-yellow-300",
@@ -91,7 +100,7 @@ export function Pill({
 }) {
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 font-mono text-[11px] font-semibold uppercase tracking-[0.12em] ${BADGE[tone]} ${className}`}
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-[0.12em] ${BADGE[tone]} ${className}`}
     >
       {dot && (
         <span
@@ -131,7 +140,7 @@ export function Tabs<T extends string>({
                 : (i - 1 + options.length) % options.length;
             onChange(options[n].value);
           }}
-          className={`rounded-full px-3 py-1.5 font-mono text-xs uppercase tracking-[0.12em] ${
+          className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] ${
             value === o.value
               ? "bg-monad text-white"
               : "text-slate-400 hover:bg-white/10 hover:text-slate-200"
@@ -178,7 +187,7 @@ export function CopyButton({ text, label = "Copy" }: { text: string; label?: str
     <button
       onClick={copy}
       aria-label={`${label}: ${text}`}
-      className="rounded-lg bg-white/5 px-2 py-1 font-mono text-xs text-slate-400 hover:bg-white/10 hover:text-slate-200"
+      className="rounded-lg bg-white/5 px-2 py-1 text-xs text-slate-400 hover:bg-white/10 hover:text-slate-200"
     >
       {label}
     </button>
@@ -194,21 +203,52 @@ export function Modal({
   onClose: () => void;
   children: ReactNode;
 }) {
-  return (
+  const [mounted, setMounted] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  useEffect(() => {
+    setMounted(true);
+    const prevFocus = document.activeElement as HTMLElement | null;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onCloseRef.current();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.removeEventListener("keydown", onKey);
+      if (prevFocus && document.contains(prevFocus)) {
+        prevFocus.focus({ preventScroll: true });
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (mounted) panelRef.current?.focus({ preventScroll: true });
+  }, [mounted]);
+
+  // Portal to document.body: callers render inside the navbar pill, which has
+  // backdrop-filter — that makes it the containing block for `fixed`
+  // descendants, so without the portal `inset-0` resolves against the small
+  // navbar box instead of the viewport and the dialog renders clipped.
+  if (!mounted) return null;
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+      className="fixed inset-0 z-[70] flex overflow-y-auto bg-black/70 p-4"
       onClick={onClose}
       role="presentation"
     >
       <div
+        ref={panelRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0b0f1a] p-5"
+        className="m-auto w-full max-w-lg rounded-2xl border border-white/10 bg-[#0b0f1a] p-5 outline-none"
         onClick={(e) => e.stopPropagation()}
-        onKeyDown={(e) => {
-          if (e.key === "Escape") onClose();
-        }}
       >
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-lg font-bold">{title}</h3>
@@ -222,6 +262,7 @@ export function Modal({
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

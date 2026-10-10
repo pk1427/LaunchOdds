@@ -7,7 +7,7 @@ import { APP_CHAIN_ID } from "@/lib/config";
 import { useMounted } from "@/lib/wallet";
 import { ConnectModal } from "./ConnectModal";
 
-export function WalletButton({ label = "Launch App" }: { label?: string }) {
+export function WalletButton({ label = "Connect wallet" }: { label?: string }) {
   const mounted = useMounted();
   const { address, isConnected, chainId } = useAccount();
   const { disconnect } = useDisconnect();
@@ -22,7 +22,7 @@ export function WalletButton({ label = "Launch App" }: { label?: string }) {
       <>
         <button
           onClick={() => setModalOpen(true)}
-          className="rounded-full bg-monad px-5 py-2 text-sm font-bold text-white shadow-[0_0_24px_-6px_rgba(131,110,249,0.8)] transition hover:brightness-110"
+          className="rounded-full bg-monad px-4 py-2 text-sm font-bold text-white transition hover:bg-monad/80"
         >
           {label}
         </button>

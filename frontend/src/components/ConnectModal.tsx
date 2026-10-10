@@ -40,6 +40,9 @@ export function ConnectModal({ open, onClose }: { open: boolean; onClose: () => 
 
   return (
     <Modal title="Connect wallet" onClose={onClose}>
+      <p className="-mt-1 text-sm text-slate-400">
+        Connect a browser wallet to trade, create markets, and manage positions.
+      </p>
       {!injectedAvailable ? (
         <div className="text-sm text-slate-300">
           <p>No injected wallet detected in this browser.</p>
@@ -47,7 +50,7 @@ export function ConnectModal({ open, onClose }: { open: boolean; onClose: () => 
             href="https://metamask.io/download/"
             target="_blank"
             rel="noreferrer"
-            className="mt-3 inline-block rounded-xl border border-[#4F9BFF]/60 bg-[#3b5bff]/25 px-4 py-2 font-semibold text-white"
+            className="mt-3 inline-block rounded-xl bg-monad px-4 py-2 font-semibold text-white"
           >
             Install MetaMask
           </a>
@@ -68,22 +71,19 @@ export function ConnectModal({ open, onClose }: { open: boolean; onClose: () => 
               )
             }
           >
-            {isPending ? "Confirm in wallet…" : "Connect injected wallet"}
+            {isPending ? "Confirm in wallet…" : "Connect browser wallet"}
           </Button>
           {error && <p className="mt-2 text-xs text-no">{error.message.slice(0, 200)}</p>}
         </div>
       )}
-      <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] p-3 font-mono text-xs tabular-nums text-slate-400">
-        <p className="font-semibold text-slate-300">Monad testnet details</p>
-        <p className="mt-1">Chain ID 10143 · Currency MON</p>
-        <p className="break-all">RPC {MONAD_RPC}</p>
-        <p className="break-all">Explorer {MONAD_EXPLORER}</p>
+      <div className="mt-4 border-t border-white/10 pt-4 text-sm text-slate-400">
+        <p>Use Monad Testnet (chain ID 10143) to place positions.</p>
         {injectedAvailable && (
-          <button onClick={addNetwork} className="mt-2 text-azure underline">
-            Add network to wallet
+          <button onClick={addNetwork} className="mt-3 text-sm font-semibold text-azure hover:underline">
+            Add Monad Testnet to wallet
           </button>
         )}
-        {added && <p className="mt-1 text-slate-300">{added}</p>}
+        {added && <p className="mt-2 text-sm text-slate-300">{added}</p>}
       </div>
     </Modal>
   );

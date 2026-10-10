@@ -1,17 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
 import { CONTRACT_ADDRESS, isAddressSet } from "@/lib/config";
 import { useAllMarkets, useChainParams, useNow } from "@/lib/hooks";
 import { Status, phaseOf } from "@/lib/market";
 import { fmtMon } from "@/lib/format";
-import {
-  ageString,
-  fetchShowStories,
-  fetchUsableStories,
-  pointsPerHour,
-} from "@/lib/hn";
 import { MarketsPanel } from "@/components/MarketsPanel";
 import { GlassCard, Pill, Skeleton, StatCard } from "@/components/ui";
 
@@ -42,41 +35,10 @@ function BookIcon() {
   );
 }
 
-const FLOAT_CARDS = [
-  {
-    title: "Live HN scores",
-    caption: "STREAMING",
-    body: "Story scores refresh every few seconds.",
-    live: true,
-  },
-  {
-    title: "On-chain escrow",
-    caption: "PULL CLAIMS",
-    body: "Stakes sit in the contract until winners claim.",
-    live: false,
-  },
-  {
-    title: "Timeout refunds",
-    caption: "PERMISSIONLESS",
-    body: "Silent resolver? Anyone triggers refunds after grace.",
-    live: false,
-  },
-];
-
 export default function Home() {
-  const { markets, count, isLoading, isError, refetch } = useAllMarkets(200);
+  const { markets, count, isLoading, isError, refetch } = useAllMarkets(6);
   const params = useChainParams();
   const nowSec = useNow(5000);
-
-  const pulse = useQuery({
-    queryKey: ["showhn-pulse"],
-    queryFn: async () => {
-      const ids = await fetchShowStories();
-      return fetchUsableStories(ids.slice(0, 40), 4);
-    },
-    refetchInterval: 20_000,
-    retry: 2,
-  });
 
   const open = markets.filter(
     (m) =>
@@ -88,27 +50,29 @@ export default function Home() {
   return (
     <div>
       {/* a. Hero */}
-      <section className="grid items-center gap-8 lg:grid-cols-2">
+      <section className="mx-auto max-w-2xl py-8 text-center sm:py-12">
         <div className="anim-rise">
           <Pill tone="accent" dot>
-            Live on Monad testnet
+            Monad Testnet
           </Pill>
-          <h1 className="mt-4 text-5xl font-black leading-[1.02] tracking-tight sm:text-6xl">
-            Bet on the next
-            <br />
-            <span className="bg-gradient-to-r from-azure to-monad bg-clip-text text-transparent">
-              breakout launch.
+          <h1 className="mt-4 text-4xl font-black leading-tight tracking-tight sm:text-6xl">
+            Back the next
+            <br className="hidden sm:block" />
+            <span className="text-monad">
+              breakout launch
             </span>
           </h1>
-          <p className="mt-4 max-w-xl text-lg text-slate-400">
-            LaunchOdds turns Show HN story scores into parimutuel prediction markets.
-            Stake MON on YES if a launch hits its target — winners split the losing
-            side.
+          <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-slate-400 sm:text-lg">
+            Predict whether a Show HN story will reach its score target. Pick a side,
+            stake MON, and claim if your position wins.
           </p>
-          <div className="mt-6 flex flex-wrap items-center gap-3">
+          <p className="mt-3 text-sm text-slate-500">
+            Monad Testnet only. Outcomes are submitted by a trusted resolver.
+          </p>
+          <div className="mt-7 flex flex-wrap justify-center gap-3">
             <Link
               href="/markets"
-              className="inline-flex items-center gap-1.5 rounded-xl border border-[#4F9BFF]/60 bg-[#3b5bff]/25 px-5 py-2.5 font-semibold text-white transition hover:bg-[#3b5bff]/40"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-monad px-5 py-2.5 font-semibold text-white transition hover:bg-blue-700"
             >
               Launch App <ArrowIcon />
             </Link>
@@ -119,7 +83,7 @@ export default function Home() {
               Create a market
             </Link>
           </div>
-          <div className="mt-4 flex gap-5 font-mono text-xs uppercase tracking-[0.18em] text-slate-500">
+          <div className="mt-5 flex justify-center gap-5 text-sm text-slate-500">
             <Link href="/how-it-works" className="inline-flex items-center gap-1.5 hover:text-slate-200">
               <BookIcon /> How it works
             </Link>
@@ -134,22 +98,6 @@ export default function Home() {
               </a>
             )}
           </div>
-        </div>
-        <div className="hidden flex-col gap-3 sm:flex" aria-hidden="true">
-          {FLOAT_CARDS.map((c, i) => (
-            <GlassCard
-              key={c.title}
-              className={`${i === 0 ? "anim-float ml-8" : i === 1 ? "anim-float-slow" : "anim-float ml-4"} max-w-sm p-4`}
-            >
-              <div className="flex items-center justify-between">
-                <p className="font-bold">{c.title}</p>
-                <Pill tone={c.live ? "yes" : "default"} dot={c.live}>
-                  {c.caption}
-                </Pill>
-              </div>
-              <p className="mt-1 font-mono text-xs text-slate-400">{c.body}</p>
-            </GlassCard>
-          ))}
         </div>
       </section>
 
@@ -177,55 +125,18 @@ export default function Home() {
               <StatCard label="Total markets" value={count.toString()} />
             </div>
             <div className="anim-rise-2">
-              <StatCard label="Total MON staked" value={`${fmtMon(totalStaked)} MON`} />
+              <StatCard label="Pool in latest markets" value={`${fmtMon(totalStaked)} MON`} />
             </div>
             <div className="anim-rise-3">
-              <StatCard label="Open markets" value={open.length.toString()} />
+              <StatCard label="Open in latest markets" value={open.length.toString()} />
             </div>
           </>
         )}
       </section>
 
-      {/* c. Show HN pulse */}
-      <section className="mt-8" aria-label="Live Show HN pulse">
-        <h2 className="text-lg font-bold">Live Show HN pulse</h2>
-        {pulse.isLoading ? (
-          <div className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {[0, 1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-28" />
-            ))}
-          </div>
-        ) : pulse.isError ? (
-          <p className="mt-2 text-sm text-slate-400">
-            HN feed unavailable.{" "}
-            <button onClick={() => void pulse.refetch()} className="text-azure underline">
-              Retry
-            </button>
-          </p>
-        ) : (
-          <div className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {(pulse.data ?? []).map((s) => (
-              <a
-                key={s.id}
-                href={`https://news.ycombinator.com/item?id=${s.id}`}
-                target="_blank"
-                rel="noreferrer"
-                className="block rounded-2xl border border-white/[0.08] bg-white/[0.04] p-4 transition hover:border-white/[0.14]"
-              >
-                <p className="line-clamp-2 text-sm font-semibold text-white">{s.title}</p>
-                <p className="mt-2 font-mono text-xs tabular-nums text-slate-400">
-                  {s.score} pts · {ageString(s.time, nowSec)} ago ·{" "}
-                  {pointsPerHour(s, nowSec).toFixed(1)} pts/h
-                </p>
-              </a>
-            ))}
-          </div>
-        )}
-      </section>
-
-      {/* d. How it works strip */}
-      <section className="mt-8" aria-label="How it works">
-        <h2 className="text-lg font-bold">How it works</h2>
+      {/* c. How it works strip */}
+      <section className="mt-12" aria-label="How it works">
+        <h2 className="text-xl font-bold">How it works</h2>
         <div className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {[
             ["01", "Pick a launch", "Choose a Show HN story gaining traction."],
@@ -234,7 +145,7 @@ export default function Home() {
             ["04", "Settle and claim", "Resolver reports the score; winners pull payouts."],
           ].map(([n, t, d]) => (
             <GlassCard key={n} className="p-4">
-              <p className="font-mono text-xs tracking-[0.2em] text-monad">{n}</p>
+              <p className="text-sm font-semibold text-monad">{n}</p>
               <p className="mt-1 font-bold">{t}</p>
               <p className="mt-1 text-sm text-slate-400">{d}</p>
             </GlassCard>
@@ -242,8 +153,8 @@ export default function Home() {
         </div>
       </section>
 
-      {/* e. Open preview */}
-      <section className="mt-8" aria-label="Open markets preview">
+      {/* d. Open preview */}
+      <section className="mt-12" aria-label="Open markets preview">
         <div className="mb-2 flex items-center justify-between">
           <h2 className="text-lg font-bold">Open now</h2>
           <Link href="/markets" className="text-sm font-semibold text-azure hover:underline">
@@ -266,35 +177,30 @@ export default function Home() {
         />
       </section>
 
-      {/* f. Trust and safety */}
-      <section className="mt-8" aria-label="Trust and safety">
-        <h2 className="text-lg font-bold">Trust and safety</h2>
-        <div className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <section className="mt-10 border-y border-white/[0.08] py-5" aria-label="Market safeguards">
+        <div className="grid gap-5 text-sm sm:grid-cols-3">
           {[
             ["Funds stay escrowed", "Stakes live in the contract until a winning claim or refund moves them."],
             ["Pull-based claims", "Winners claim their own payouts; settlement never pushes funds."],
-            ["Reentrancy-guarded", "Claims update accounting before any transfer and are non-reentrant."],
-            ["Empty-side refunds", "If nobody backed the winning side, everyone gets their stake back."],
-            ["Quiet-resolver refunds", "Past expiry plus grace, anyone can permissionlessly trigger refunds."],
-            ["Trusted resolver", "One address reports HN scores. The contract cannot verify the API — testnet, unaudited."],
+            ["Refund conditions", "The contract decides when a position can be refunded or claimed."],
           ].map(([t, d]) => (
-            <GlassCard key={t} className="p-4">
+            <div key={t}>
               <p className="font-bold">{t}</p>
               <p className="mt-1 text-sm text-slate-400">{d}</p>
-            </GlassCard>
+            </div>
           ))}
         </div>
       </section>
 
       {/* g. Final CTA */}
-      <section className="mt-8 rounded-2xl border border-monad/30 bg-gradient-to-r from-monad/15 to-azure/10 p-8 text-center">
-        <h2 className="text-2xl font-black">Found a launch taking off?</h2>
+      <section className="mt-12 rounded-2xl bg-white/[0.04] p-8 text-center">
+        <h2 className="text-2xl font-black">See a story gaining momentum?</h2>
         <p className="mx-auto mt-1 max-w-md text-sm text-slate-400">
           Create a market in under a minute and let the crowd price the breakout.
         </p>
         <Link
           href="/create"
-          className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-[#4F9BFF]/60 bg-[#3b5bff]/25 px-5 py-2.5 font-semibold text-white transition hover:bg-[#3b5bff]/40"
+          className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-monad px-5 py-2.5 font-semibold text-white transition hover:bg-blue-700"
         >
           Create a market <ArrowIcon />
         </Link>

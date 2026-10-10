@@ -13,15 +13,15 @@ import { Button, EmptyState, Skeleton, Tabs } from "@/components/ui";
 
 type Tab = "open" | "resolving" | "settled" | "mine";
 type Sort = "newest" | "closing" | "pool";
-const PAGE = 20;
+const INITIAL_MARKETS = 6;
 
 export default function MarketsPage() {
   const [tab, setTab] = useState<Tab>("open");
   const [sort, setSort] = useState<Sort>("newest");
-  const [page, setPage] = useState(0);
+  const [loaded, setLoaded] = useState(INITIAL_MARKETS);
   const [connectOpen, setConnectOpen] = useState(false);
   const { address } = useAccount();
-  const { markets, count, isLoading, isError, refetch } = useAllMarkets(200);
+  const { markets, count, isLoading, isError, refetch } = useAllMarkets(loaded);
   const params = useChainParams();
   const nowSec = useNow(5000);
 
@@ -74,9 +74,6 @@ export default function MarketsPage() {
     return [...list].sort(by);
   }, [markets, tab, sort, nowSec, params.lockWindow, params.gracePeriod, address, hasPosition]);
 
-  const pages = Math.max(1, Math.ceil(filtered.length / PAGE));
-  const safePage = Math.min(page, pages - 1);
-  const slice = filtered.slice(safePage * PAGE, safePage * PAGE + PAGE);
 
   if (!isAddressSet(CONTRACT_ADDRESS)) {
     return (
@@ -88,14 +85,19 @@ export default function MarketsPage() {
 
   return (
     <div>
-      <h2 className="text-2xl font-black tracking-tight">Markets ({count})</h2>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-black tracking-tight">Markets</h1>
+          <p className="mt-1 text-sm text-slate-400">Pick a story, choose YES or NO, and follow its score.</p>
+        </div>
+      </div>
+      <p className="mt-4 text-sm text-slate-500">{count} markets so far</p>
       <div className="mb-3 mt-3 flex flex-wrap items-center justify-between gap-2">
         <Tabs<Tab>
           ariaLabel="Market filters"
           value={tab}
           onChange={(t) => {
             setTab(t);
-            setPage(0);
           }}
           options={[
             { value: "open", label: "Open" },
@@ -104,7 +106,7 @@ export default function MarketsPage() {
             { value: "mine", label: "Mine" },
           ]}
         />
-        <label className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.14em] text-slate-400">
+        <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
           Sort
           <select
             value={sort}
@@ -121,14 +123,11 @@ export default function MarketsPage() {
       {tab === "mine" && !address ? (
         <EmptyState
           title="Connect to see your markets"
-          body="The Mine tab shows markets you created or hold a position in."
+          body="See the markets you created and the ones you joined."
           action={
-            <>
-              <Button variant="primary" onClick={() => setConnectOpen(true)}>
-                Connect wallet
-              </Button>
-              <ConnectModal open={connectOpen} onClose={() => setConnectOpen(false)} />
-            </>
+            <Button variant="primary" onClick={() => setConnectOpen(true)}>
+              Connect wallet
+            </Button>
           }
         />
       ) : isLoading ? (
@@ -140,7 +139,7 @@ export default function MarketsPage() {
       ) : (
         <>
           <MarketsPanel
-            markets={slice}
+            markets={filtered}
             count={filtered.length}
             isLoading={false}
             isError={isError || params.isError}
@@ -153,26 +152,13 @@ export default function MarketsPage() {
             resolver={params.resolver}
             nowSec={nowSec}
           />
-          {pages > 1 && (
-            <div className="mt-4 flex items-center justify-center gap-2 text-sm">
+          {markets.length < count && (
+            <div className="mt-5 text-center">
               <Button
                 variant="secondary"
-                size="sm"
-                disabled={safePage === 0}
-                onClick={() => setPage(Math.max(0, safePage - 1))}
+                onClick={() => setLoaded((n) => n + INITIAL_MARKETS)}
               >
-                ← Prev
-              </Button>
-              <span className="font-mono tabular-nums text-slate-400">
-                {safePage + 1} / {pages}
-              </span>
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={safePage >= pages - 1}
-                onClick={() => setPage(Math.min(pages - 1, safePage + 1))}
-              >
-                Next →
+                Show 6 more markets
               </Button>
             </div>
           )}

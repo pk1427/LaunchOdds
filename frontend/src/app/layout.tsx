@@ -3,10 +3,8 @@ import "./globals.css";
 import { Providers } from "@/components/Providers";
 import { ToastProvider } from "@/components/Toasts";
 import { SiteHeader } from "@/components/SiteHeader";
-import { SiteFooter } from "@/components/SiteFooter";
 import { AutoResolve } from "@/components/AutoResolve";
 import { Reconnect } from "@/lib/wallet";
-import { grotesk, mono } from "@/lib/fonts";
 
 const SITE = "LaunchOdds — HN launch prediction markets";
 const DESC =
@@ -29,15 +27,14 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${grotesk.variable} ${mono.variable}`}>
+    <html lang="en">
       <body className="font-sans">
         <Providers>
           <Reconnect />
           <ToastProvider>
-            <main className="mx-auto min-h-screen max-w-7xl px-4 pb-6 pt-2 sm:px-6">
+            <main className="mx-auto min-h-screen max-w-[1100px] px-4 pb-6 pt-2 sm:px-6">
               <SiteHeader />
               <div className="mt-6">{children}</div>
-              <SiteFooter />
             </main>
             <AutoResolve />
           </ToastProvider>

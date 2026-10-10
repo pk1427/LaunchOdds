@@ -72,14 +72,14 @@ function Sparkline({ points }: { points: { t: number; s: number }[] }) {
     .join(" ");
   return (
     <svg viewBox="0 0 100 28" className="h-7 w-28" aria-hidden>
-      <polyline points={coords} fill="none" stroke="#836EF9" strokeWidth="2" />
+      <polyline points={coords} fill="none" stroke="#2563EB" strokeWidth="2" />
     </svg>
   );
 }
 
 export default function CreatePage() {
   return (
-    <RequireWallet reason="Only connected wallets on Monad Testnet can create markets.">
+    <RequireWallet reason="Connect your wallet to create a new prediction.">
       <CreateWizard />
     </RequireWallet>
   );
@@ -269,24 +269,27 @@ function CreateWizard() {
   const expiryPreview = Math.floor(Date.now() / 1000) + deadline;
 
   return (
-    <div className="mx-auto max-w-4xl">
+    <div className={`mx-auto max-w-4xl ${step === 1 ? "pb-28 sm:pb-8" : "pb-8"}`}>
       <h2 className="text-2xl font-black">Create a market</h2>
+      <p className="mt-2 text-sm text-slate-400">
+        Predict whether a Hacker News story reaches its score goal before time runs out.
+      </p>
       <ol className="mt-3 flex gap-2" aria-label="Create steps">
-        {["Choose launch", "Target and deadline", "Review and confirm"].map((label, i) => {
+        {["Choose a story", "Set goal and time", "Review your market"].map((label, i) => {
           const n = i + 1;
           const active = step === n;
           const done = step > n;
           return (
             <li key={label} className="flex flex-1 items-center gap-2">
               <span
-                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full font-mono text-xs font-bold ${
+                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
                   done ? "bg-yes text-black" : active ? "bg-monad text-white" : "bg-white/10 text-slate-400"
                 }`}
                 aria-current={active ? "step" : undefined}
               >
                 {n}
               </span>
-              <span className={`text-sm ${active ? "font-semibold text-white" : "text-slate-400"}`}>
+              <span className={`min-w-0 text-xs sm:text-sm ${active ? "font-semibold text-white" : "text-slate-400"}`}>
                 {label}
               </span>
               {n < 3 && <span className="h-px flex-1 bg-white/10" />}
@@ -297,36 +300,37 @@ function CreateWizard() {
 
       {step === 1 && (
         <div className="mt-4">
-          <div className="flex gap-2">
-            <input
-              value={paste}
-              onChange={(e) => setPaste(e.target.value)}
-              placeholder="Paste HN link or story ID…"
-              aria-label="HN link or story ID"
-              className="flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm"
-            />
-            <Button onClick={() => void addByPaste()} disabled={pasteBusy}>
-              {pasteBusy ? "…" : "Add"}
-            </Button>
-          </div>
-          {pasteError && <p className="mt-1 text-sm text-no">{pasteError}</p>}
-          {selected && (
-            <GlassCard className="mt-3 border-monad/40 p-3">
-              <p className="text-sm">
-                Selected: <b>{selected.title}</b>{" "}
-                <span className="font-mono tabular-nums text-slate-400">
-                  ({liveScore ?? "…"} pts)
-                </span>
-              </p>
-            </GlassCard>
-          )}
-          <div className="mt-3">
-            <DiscoverPanel onCreate={setSelected} />
-          </div>
-          <div className="mt-3 flex justify-end">
-            <Button variant="primary" disabled={!selected} onClick={() => setStep(2)}>
-              Continue →
-            </Button>
+          <p className="mb-4 text-sm text-slate-400">This demo uses Hacker News scores. More verified data sources can be added later.</p>
+          <details className="mb-4 text-sm text-slate-400">
+            <summary className="cursor-pointer hover:text-white">Have a story link or number?</summary>
+            <div className="mt-3 flex gap-2">
+              <input value={paste} onChange={(e) => setPaste(e.target.value)} placeholder="Paste a Hacker News link or story number" aria-label="HN link or story ID" className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm" />
+              <Button onClick={() => void addByPaste()} disabled={pasteBusy}>{pasteBusy ? "Adding…" : "Add"}</Button>
+            </div>
+            {pasteError && <p className="mt-2 text-sm text-no">{pasteError}</p>}
+          </details>
+          <DiscoverPanel
+            onCreate={setSelected}
+            selectedId={selected?.id}
+            selectedStory={selected}
+            liveScore={liveScore}
+            onContinue={() => setStep(2)}
+          />
+          <div className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-[#05070d]/95 p-3 backdrop-blur sm:hidden">
+            {selected ? (
+              <Button variant="primary" className="w-full" onClick={() => setStep(2)}>
+                Continue with selected story
+              </Button>
+            ) : (
+              <div>
+                <Button variant="primary" className="w-full" disabled aria-describedby="mobile-choose-hint">
+                  Continue
+                </Button>
+                <p id="mobile-choose-hint" className="mt-1.5 text-center text-xs text-slate-500">
+                  Choose a story to continue.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -335,7 +339,7 @@ function CreateWizard() {
         <GlassCard className="mt-4">
           <p className="font-semibold">{selected.title}</p>
           <p className="mt-1 font-mono text-sm tabular-nums">
-            live baseline: <b>{liveScore ?? "…"}</b>
+            Current score: <b>{liveScore ?? "…"}</b>
           </p>
           {momentum.ready ? (
             <div className="mt-1 flex items-center gap-2 text-xs text-slate-300">
@@ -350,7 +354,8 @@ function CreateWizard() {
               Watching score — momentum appears after 2 snapshots.
             </p>
           )}
-          <div className="mt-3 text-sm font-semibold">Target +N points</div>
+          <div className="mt-3 text-sm font-semibold">Set the score goal</div>
+          <p className="mt-0.5 text-xs text-slate-500">How many more points should the story gain?</p>
           <div className="mt-1 flex flex-wrap gap-1">
             {TARGETS.map((t) => (
               <button
@@ -363,7 +368,8 @@ function CreateWizard() {
               </button>
             ))}
           </div>
-          <div className="mt-3 text-sm font-semibold">Deadline</div>
+          <div className="mt-3 text-sm font-semibold">Choose how long people can join</div>
+          <p className="mt-0.5 text-xs text-slate-500">Betting closes when the countdown ends.</p>
           <div className="mt-1 flex flex-wrap gap-1">
             {DEADLINES.map((d) => (
               <button
@@ -393,17 +399,44 @@ function CreateWizard() {
       {step === 3 && meta && (
         <GlassCard className="mt-4">
           <Pill tone="accent">Review</Pill>
+          <h3 className="mt-2 text-lg font-bold">Review your market</h3>
           <p className="mt-2 font-semibold">{meta.question}</p>
-          <dl className="mt-2 space-y-1 font-mono text-sm tabular-nums text-slate-300">
-            <div>baseline: {meta.baselineScore}</div>
-            <div>target: {meta.targetScore}</div>
-            <div>
-              expiry: ~{localTime(expiryPreview)} ({deadline}s from the next block)
+          <dl className="mt-3 space-y-1.5 text-sm text-slate-300">
+            <div className="flex justify-between gap-4">
+              <dt className="text-slate-400">Starting score</dt>
+              <dd className="font-mono tabular-nums text-white">{meta.baselineScore}</dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt className="text-slate-400">Score to reach</dt>
+              <dd className="font-mono tabular-nums text-white">{meta.targetScore}</dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt className="text-slate-400">Closes</dt>
+              <dd className="text-right">
+                <span className="font-mono tabular-nums text-white">{localTime(expiryPreview)}</span>{" "}
+                <span className="text-xs text-slate-500">({deadline}s from the next block)</span>
+              </dd>
             </div>
           </dl>
-          <p className="mt-2 break-all font-mono text-xs text-slate-500">
-            metadataHash: {hashPreview}
-          </p>
+          <details className="mt-3 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm">
+            <summary className="cursor-pointer text-slate-400 hover:text-white">
+              Technical details
+            </summary>
+            <div className="mt-2 space-y-1 text-sm text-slate-400">
+              <div className="flex justify-between gap-4">
+                <span>Story ID</span>
+                <span className="font-mono tabular-nums text-slate-200">{meta.storyId}</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span>Source</span>
+                <span className="text-slate-200">{meta.source}</span>
+              </div>
+              <p className="break-all pt-1 text-xs">
+                Metadata hash:{" "}
+                <span className="font-mono tabular-nums text-slate-500">{hashPreview}</span>
+              </p>
+            </div>
+          </details>
           <p className="mt-2 text-xs text-slate-500">
             Expiry is computed from the latest block timestamp at submit time, not your
             browser clock.

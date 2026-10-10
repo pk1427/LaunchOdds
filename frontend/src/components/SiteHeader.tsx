@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type MouseEvent } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LogoMark } from "./Logo";
+import { useAccount } from "wagmi";
 import { WalletButton } from "./WalletButton";
+import { ConnectModal } from "./ConnectModal";
 
 const NAV = [
   { href: "/markets", label: "Markets" },
@@ -16,11 +17,20 @@ const NAV = [
 export function SiteHeader() {
   const pathname = usePathname();
   const [drawer, setDrawer] = useState(false);
+  const [connectOpen, setConnectOpen] = useState(false);
+  const { isConnected } = useAccount();
+  const needsWallet = (href: string) => href === "/create" || href === "/portfolio";
+  const guardRoute = (href: string, event: MouseEvent<HTMLAnchorElement>) => {
+    if (!isConnected && needsWallet(href)) {
+      event.preventDefault();
+      setDrawer(false);
+      setConnectOpen(true);
+    }
+  };
   return (
     <div className="sticky top-3 z-40">
       <div className="flex items-center justify-between gap-2 rounded-full border border-white/10 bg-[#0a0e18]/80 py-2 pl-4 pr-2 shadow-[0_8px_40px_-12px_rgba(0,0,0,0.8)] backdrop-blur-xl">
         <Link href="/" className="flex items-center gap-2" aria-label="LaunchOdds home">
-          <LogoMark />
           <span className="text-base font-black tracking-tight">
             Launch<span className="text-monad">Odds</span>
           </span>
@@ -32,8 +42,9 @@ export function SiteHeader() {
               <Link
                 key={n.href}
                 href={n.href}
+                onClick={(event) => guardRoute(n.href, event)}
                 aria-current={active ? "page" : undefined}
-                className={`rounded-full px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.22em] transition ${
+                className={`rounded-full px-3 py-1.5 text-sm transition ${
                   active ? "bg-white/10 text-white" : "text-slate-400 hover:text-white"
                 }`}
               >
@@ -50,7 +61,7 @@ export function SiteHeader() {
             aria-expanded={drawer}
             onClick={() => setDrawer(!drawer)}
           >
-            ☰
+            <span className="text-xs font-semibold uppercase tracking-wider">{drawer ? "Close" : "Menu"}</span>
           </button>
         </div>
       </div>
@@ -63,14 +74,15 @@ export function SiteHeader() {
             <Link
               key={n.href}
               href={n.href}
-              onClick={() => setDrawer(false)}
-              className="rounded-xl px-4 py-2.5 font-mono text-xs uppercase tracking-[0.22em] text-slate-300 hover:bg-white/5 hover:text-white"
+              onClick={(event) => guardRoute(n.href, event)}
+              className="rounded-xl px-4 py-2.5 text-sm text-slate-300 hover:bg-white/5 hover:text-white"
             >
               {n.label}
             </Link>
           ))}
         </nav>
       )}
+      <ConnectModal open={connectOpen} onClose={() => setConnectOpen(false)} />
     </div>
   );
 }

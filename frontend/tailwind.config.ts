@@ -5,10 +5,10 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        monad: "#836EF9",
-        azure: "#4F9BFF",
-        yes: "#34d399",
-        no: "#fb7185",
+        monad: "#2563eb",
+        azure: "#0891b2",
+        yes: "#16a34a",
+        no: "#dc2626",
         ink: "#05070d",
       },
       fontFamily: {

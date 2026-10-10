@@ -25,7 +25,7 @@ interface Row {
 
 export default function PortfolioPage() {
   return (
-    <RequireWallet reason="Your positions live on-chain — connect to load them.">
+    <RequireWallet reason="Connect your wallet to see the markets you joined.">
       <PortfolioBody />
     </RequireWallet>
   );
@@ -133,14 +133,14 @@ function PortfolioBody() {
     <div>
       <h2 className="text-2xl font-black tracking-tight">Portfolio</h2>
       {claimableTotal > 0n && (
-        <div className="mt-3 rounded-2xl border border-yes/40 bg-yes/10 p-4 font-mono tabular-nums">
-          You can claim <b>{fmtMon(claimableTotal)} MON</b>
+        <div className="mt-3 rounded-2xl border border-yes/40 bg-yes/10 p-4 text-sm">
+          You can claim <b className="font-mono tabular-nums">{fmtMon(claimableTotal)} MON</b>
         </div>
       )}
       <div className="mt-3 grid gap-3 sm:grid-cols-3">
-        <StatCard label="Total staked" value={`${fmtMon(stakedTotal)} MON`} />
-        <StatCard label="Claimable" value={`${fmtMon(claimableTotal)} MON`} />
-        <StatCard label="Open positions" value={openCount.toString()} />
+        <StatCard label="You put in" value={`${fmtMon(stakedTotal)} MON`} />
+        <StatCard label="Ready to claim" value={`${fmtMon(claimableTotal)} MON`} />
+        <StatCard label="Still open" value={openCount.toString()} />
       </div>
 
       <div className="mt-4">
@@ -184,7 +184,7 @@ function PortfolioBody() {
             title={rows.length === 0 ? "No positions yet" : `Nothing ${tab}`}
             body={
               rows.length === 0
-                ? "No positions in the newest 50 markets. Find a launch and take a side."
+                ? "You have not joined a market yet. Browse stories to get started."
                 : undefined
             }
           />
@@ -199,7 +199,7 @@ function PortfolioBody() {
               <div className="text-sm">
                 <Link
                   href={`/markets/${r.id.toString()}`}
-                  className="font-bold hover:text-[#b7a8ff]"
+                  className="font-bold hover:text-azure"
                 >
                   Market #{r.id.toString()}
                 </Link>
@@ -222,7 +222,7 @@ function PortfolioBody() {
         </div>
       )}
       <p className="mt-3 text-xs text-slate-500">
-        Showing positions across the newest 50 markets.
+        Your recent market activity.
       </p>
     </div>
   );
