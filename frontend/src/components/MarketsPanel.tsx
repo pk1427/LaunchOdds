@@ -50,7 +50,7 @@ export function MarketsPanel({
   if (count === 0 || markets.length === 0) {
     return (
       <div className="rounded-xl border border-white/10 bg-white/5 p-6 text-center text-gray-400">
-        No markets yet. Discover a launch on the right and create the first one.
+        No markets yet. Create the first market from a live Hacker News story.
       </div>
     );
   }

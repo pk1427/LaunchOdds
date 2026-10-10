@@ -9,7 +9,10 @@ import {
 } from "wagmi";
 import { decodeEventLog, keccak256, toHex, type Address } from "viem";
 import { DiscoverPanel } from "@/components/DiscoverPanel";
+import { RequireWallet } from "@/components/RequireWallet";
+import { Button, GlassCard, Pill } from "@/components/ui";
 import { useToasts } from "@/components/Toasts";
+import { localTime } from "@/lib/format";
 import { useStory } from "@/lib/hooks";
 import { launchOddsAbi } from "@/lib/abi";
 import { APP_CHAIN_ID, CONTRACT_ADDRESS, isAddressSet } from "@/lib/config";
@@ -69,18 +72,27 @@ function Sparkline({ points }: { points: { t: number; s: number }[] }) {
     .join(" ");
   return (
     <svg viewBox="0 0 100 28" className="h-7 w-28" aria-hidden>
-      <polyline points={coords} fill="none" stroke="#836EF9" strokeWidth="2" />
+      <polyline points={coords} fill="none" stroke="#2563EB" strokeWidth="2" />
     </svg>
   );
 }
 
 export default function CreatePage() {
+  return (
+    <RequireWallet reason="Connect your wallet to create a new prediction.">
+      <CreateWizard />
+    </RequireWallet>
+  );
+}
+
+function CreateWizard() {
   const router = useRouter();
   const { push, update } = useToasts();
   const [selected, setSelected] = useState<UsableStory | null>(null);
   const [paste, setPaste] = useState("");
   const [pasteError, setPasteError] = useState<string | null>(null);
   const [pasteBusy, setPasteBusy] = useState(false);
+  const [step, setStep] = useState(1);
   const [delta, setDelta] = useState(5);
   const [deadline, setDeadline] = useState(300);
   const [busy, setBusy] = useState(false);
@@ -254,104 +266,191 @@ export default function CreatePage() {
       ? momentumWarning(momentum, target - liveScore, deadline)
       : null;
 
-  return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      <div>
-        <h2 className="text-xl font-bold">Pick a story</h2>
-        <div className="mt-2 flex gap-2">
-          <input
-            value={paste}
-            onChange={(e) => setPaste(e.target.value)}
-            placeholder="Paste HN link or story ID…"
-            className="flex-1 rounded-lg bg-white/10 px-3 py-2 text-sm"
-          />
-          <button
-            onClick={() => void addByPaste()}
-            disabled={pasteBusy}
-            className="rounded-lg bg-white/10 px-3 py-2 text-sm font-semibold hover:bg-white/20 disabled:opacity-50"
-          >
-            {pasteBusy ? "…" : "Add"}
-          </button>
-        </div>
-        {pasteError && <p className="mt-1 text-sm text-no">{pasteError}</p>}
-        <div className="mt-3">
-          <DiscoverPanel onCreate={setSelected} />
-        </div>
-      </div>
+  const expiryPreview = Math.floor(Date.now() / 1000) + deadline;
 
-      <div>
-        <h2 className="text-xl font-bold">Configure market</h2>
-        {!selected ? (
-          <p className="mt-2 text-sm text-gray-400">
-            Select a story on the left or paste a link to configure the market.
-          </p>
-        ) : (
-          <div className="mt-2 rounded-xl border border-white/10 bg-white/5 p-4">
-            <p className="font-semibold">{selected.title}</p>
-            <p className="mt-1 font-mono text-sm tabular-nums">
-              live baseline: <b>{liveScore ?? "…"}</b>
-            </p>
-            {momentum.ready ? (
-              <div className="mt-1 flex items-center gap-2 text-xs text-gray-300">
-                <Sparkline points={momentum.points} />
-                <span className="font-mono tabular-nums">
-                  {momentum.delta >= 0 ? "+" : ""}
-                  {momentum.delta} in last {momentum.minutes < 1 ? "<1" : Math.round(momentum.minutes)}m
-                </span>
-              </div>
+  return (
+    <div className={`mx-auto max-w-4xl ${step === 1 ? "pb-28 sm:pb-8" : "pb-8"}`}>
+      <h2 className="text-2xl font-black">Create a market</h2>
+      <p className="mt-2 text-sm text-slate-400">
+        Predict whether a Hacker News story reaches its score goal before time runs out.
+      </p>
+      <ol className="mt-3 flex gap-2" aria-label="Create steps">
+        {["Choose a story", "Set goal and time", "Review your market"].map((label, i) => {
+          const n = i + 1;
+          const active = step === n;
+          const done = step > n;
+          return (
+            <li key={label} className="flex flex-1 items-center gap-2">
+              <span
+                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                  done ? "bg-yes text-black" : active ? "bg-monad text-white" : "bg-white/10 text-slate-400"
+                }`}
+                aria-current={active ? "step" : undefined}
+              >
+                {n}
+              </span>
+              <span className={`min-w-0 text-xs sm:text-sm ${active ? "font-semibold text-white" : "text-slate-400"}`}>
+                {label}
+              </span>
+              {n < 3 && <span className="h-px flex-1 bg-white/10" />}
+            </li>
+          );
+        })}
+      </ol>
+
+      {step === 1 && (
+        <div className="mt-4">
+          <p className="mb-4 text-sm text-slate-400">This demo uses Hacker News scores. More verified data sources can be added later.</p>
+          <details className="mb-4 text-sm text-slate-400">
+            <summary className="cursor-pointer hover:text-white">Have a story link or number?</summary>
+            <div className="mt-3 flex gap-2">
+              <input value={paste} onChange={(e) => setPaste(e.target.value)} placeholder="Paste a Hacker News link or story number" aria-label="HN link or story ID" className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm" />
+              <Button onClick={() => void addByPaste()} disabled={pasteBusy}>{pasteBusy ? "Adding…" : "Add"}</Button>
+            </div>
+            {pasteError && <p className="mt-2 text-sm text-no">{pasteError}</p>}
+          </details>
+          <DiscoverPanel
+            onCreate={setSelected}
+            selectedId={selected?.id}
+            selectedStory={selected}
+            liveScore={liveScore}
+            onContinue={() => setStep(2)}
+          />
+          <div className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-[#05070d]/95 p-3 backdrop-blur sm:hidden">
+            {selected ? (
+              <Button variant="primary" className="w-full" onClick={() => setStep(2)}>
+                Continue with selected story
+              </Button>
             ) : (
-              <p className="mt-1 text-xs text-gray-500">
-                Watching score — momentum appears after 2 snapshots.
-              </p>
+              <div>
+                <Button variant="primary" className="w-full" disabled aria-describedby="mobile-choose-hint">
+                  Continue
+                </Button>
+                <p id="mobile-choose-hint" className="mt-1.5 text-center text-xs text-slate-500">
+                  Choose a story to continue.
+                </p>
+              </div>
             )}
-            <div className="mt-3 text-sm font-semibold">Target +N points</div>
-            <div className="mt-1 flex gap-1">
-              {TARGETS.map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setDelta(t)}
-                  className={`rounded px-3 py-1 font-mono text-sm tabular-nums ${delta === t ? "bg-monad text-white" : "bg-white/10"}`}
-                >
-                  +{t}
-                </button>
-              ))}
-            </div>
-            <div className="mt-3 text-sm font-semibold">Deadline</div>
-            <div className="mt-1 flex gap-1">
-              {DEADLINES.map((d) => (
-                <button
-                  key={d.label}
-                  onClick={() => setDeadline(d.secs)}
-                  className={`rounded px-3 py-1 font-mono text-sm tabular-nums ${deadline === d.secs ? "bg-monad text-white" : "bg-white/10"}`}
-                >
-                  {d.label}
-                </button>
-              ))}
-            </div>
-            {warn && (
-              <p className="mt-2 rounded-lg bg-yellow-500/10 p-2 text-xs text-yellow-300">{warn}</p>
-            )}
-            <div className="mt-3 border-t border-white/10 pt-2 text-sm text-gray-300">
-              <p>
-                Question: Will it reach <b className="text-white">{target}</b> points by deadline?
-              </p>
-              <p className="font-mono text-xs tabular-nums">
-                baseline {liveScore} · target {target} · {deadline}s from the next block
-              </p>
-              <p className="mt-1 break-all font-mono text-xs text-gray-500">
-                metadataHash: {hashPreview}
-              </p>
-            </div>
-            <button
-              onClick={() => void create()}
-              disabled={busy || liveScore === undefined}
-              className="mt-3 w-full rounded-lg bg-monad px-3 py-2 font-semibold text-white hover:brightness-110 disabled:opacity-50"
-            >
-              {busy ? "Confirming…" : "Create market"}
-            </button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {step === 2 && selected && (
+        <GlassCard className="mt-4">
+          <p className="font-semibold">{selected.title}</p>
+          <p className="mt-1 font-mono text-sm tabular-nums">
+            Current score: <b>{liveScore ?? "…"}</b>
+          </p>
+          {momentum.ready ? (
+            <div className="mt-1 flex items-center gap-2 text-xs text-slate-300">
+              <Sparkline points={momentum.points} />
+              <span className="font-mono tabular-nums">
+                {momentum.delta >= 0 ? "+" : ""}
+                {momentum.delta} in last {momentum.minutes < 1 ? "<1" : Math.round(momentum.minutes)}m
+              </span>
+            </div>
+          ) : (
+            <p className="mt-1 text-xs text-slate-500">
+              Watching score — momentum appears after 2 snapshots.
+            </p>
+          )}
+          <div className="mt-3 text-sm font-semibold">Set the score goal</div>
+          <p className="mt-0.5 text-xs text-slate-500">How many more points should the story gain?</p>
+          <div className="mt-1 flex flex-wrap gap-1">
+            {TARGETS.map((t) => (
+              <button
+                key={t}
+                onClick={() => setDelta(t)}
+                aria-pressed={delta === t}
+                className={`rounded-lg px-3 py-1 font-mono text-sm tabular-nums ${delta === t ? "bg-monad text-white" : "bg-white/10"}`}
+              >
+                +{t}
+              </button>
+            ))}
+          </div>
+          <div className="mt-3 text-sm font-semibold">Choose how long people can join</div>
+          <p className="mt-0.5 text-xs text-slate-500">Betting closes when the countdown ends.</p>
+          <div className="mt-1 flex flex-wrap gap-1">
+            {DEADLINES.map((d) => (
+              <button
+                key={d.label}
+                onClick={() => setDeadline(d.secs)}
+                aria-pressed={deadline === d.secs}
+                className={`rounded-lg px-3 py-1 font-mono text-sm tabular-nums ${deadline === d.secs ? "bg-monad text-white" : "bg-white/10"}`}
+              >
+                {d.label}
+              </button>
+            ))}
+          </div>
+          {warn && (
+            <p className="mt-2 rounded-xl bg-yellow-500/10 p-2 text-xs text-yellow-300">{warn}</p>
+          )}
+          <div className="mt-4 flex justify-between">
+            <Button variant="ghost" onClick={() => setStep(1)}>
+              ← Back
+            </Button>
+            <Button variant="primary" disabled={liveScore === undefined} onClick={() => setStep(3)}>
+              Review →
+            </Button>
+          </div>
+        </GlassCard>
+      )}
+
+      {step === 3 && meta && (
+        <GlassCard className="mt-4">
+          <Pill tone="accent">Review</Pill>
+          <h3 className="mt-2 text-lg font-bold">Review your market</h3>
+          <p className="mt-2 font-semibold">{meta.question}</p>
+          <dl className="mt-3 space-y-1.5 text-sm text-slate-300">
+            <div className="flex justify-between gap-4">
+              <dt className="text-slate-400">Starting score</dt>
+              <dd className="font-mono tabular-nums text-white">{meta.baselineScore}</dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt className="text-slate-400">Score to reach</dt>
+              <dd className="font-mono tabular-nums text-white">{meta.targetScore}</dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt className="text-slate-400">Closes</dt>
+              <dd className="text-right">
+                <span className="font-mono tabular-nums text-white">{localTime(expiryPreview)}</span>{" "}
+                <span className="text-xs text-slate-500">({deadline}s from the next block)</span>
+              </dd>
+            </div>
+          </dl>
+          <details className="mt-3 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm">
+            <summary className="cursor-pointer text-slate-400 hover:text-white">
+              Technical details
+            </summary>
+            <div className="mt-2 space-y-1 text-sm text-slate-400">
+              <div className="flex justify-between gap-4">
+                <span>Story ID</span>
+                <span className="font-mono tabular-nums text-slate-200">{meta.storyId}</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span>Source</span>
+                <span className="text-slate-200">{meta.source}</span>
+              </div>
+              <p className="break-all pt-1 text-xs">
+                Metadata hash:{" "}
+                <span className="font-mono tabular-nums text-slate-500">{hashPreview}</span>
+              </p>
+            </div>
+          </details>
+          <p className="mt-2 text-xs text-slate-500">
+            Expiry is computed from the latest block timestamp at submit time, not your
+            browser clock.
+          </p>
+          <div className="mt-4 flex justify-between">
+            <Button variant="ghost" onClick={() => setStep(2)}>
+              ← Back
+            </Button>
+            <Button variant="primary" disabled={busy} onClick={() => void create()}>
+              {busy ? "Confirming…" : "Create market"}
+            </Button>
+          </div>
+        </GlassCard>
+      )}
     </div>
   );
 }

@@ -2,6 +2,151 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --bg: #05070d;
+  --panel: rgba(255, 255, 255, 0.04);
+  --border: rgba(255, 255, 255, 0.08);
+  --accent: #2563eb;
+  --accent-blue: #0891b2;
+  --yes: #16a34a;
+  --no: #dc2626;
+  --warn: #fbbf24;
+  --muted: #94a3b8;
+  --font-sans: "Avenir Next", Avenir, "Segoe UI", ui-sans-serif, system-ui,
+    sans-serif;
+  --font-mono: "SF Mono", "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas,
+    monospace;
+}
+
+html {
+  color-scheme: dark;
+}
+
 body {
-  @apply bg-[#0b0b12] text-gray-100 antialiased;
+  background-color: var(--bg);
+  color: #e2e8f0;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Native controls do not inherit the body font by default — keep them on the
+   same primary (navbar) family as the rest of the app. */
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+@layer components {
+  /* Shared section-label style: sans eyebrow used for card/section headings
+     across Markets, Create, Portfolio, and market detail. Technical numeric
+     data (scores, MON, addresses, hashes, timestamps) stays `font-mono`. */
+  .type-eyebrow {
+    @apply text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400;
+  }
+}
+
+::selection {
+  background: rgba(37, 99, 235, 0.45);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes drift {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-9px);
+  }
+}
+
+@keyframes ping-dot {
+  0% {
+    box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.55);
+  }
+  70% {
+    box-shadow: 0 0 0 7px rgba(52, 211, 153, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(52, 211, 153, 0);
+  }
+}
+
+@keyframes shimmer-slide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+.anim-rise {
+  animation: rise-in 0.55s ease both;
+}
+.anim-rise-1 {
+  animation: rise-in 0.55s ease 0.08s both;
+}
+.anim-rise-2 {
+  animation: rise-in 0.55s ease 0.16s both;
+}
+.anim-rise-3 {
+  animation: rise-in 0.55s ease 0.24s both;
+}
+.anim-float {
+  animation: drift 6s ease-in-out infinite;
+}
+.anim-float-slow {
+  animation: drift 8s ease-in-out 1.2s infinite;
+}
+.live-dot {
+  animation: ping-dot 1.8s ease-out infinite;
+}
+
+.skeleton-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.skeleton-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.07),
+    transparent
+  );
+  animation: shimmer-slide 1.4s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-rise,
+  .anim-rise-1,
+  .anim-rise-2,
+  .anim-rise-3,
+  .anim-float,
+  .anim-float-slow,
+  .live-dot,
+  .skeleton-shimmer::after {
+    animation: none;
+  }
 }

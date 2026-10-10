@@ -8,20 +8,23 @@ import { APP_CHAIN_ID, CONTRACT_ADDRESS, isAddressSet } from "@/lib/config";
 import { useAllMarkets, useChainParams, useNow } from "@/lib/hooks";
 import { Status, phaseOf } from "@/lib/market";
 import { MarketsPanel } from "@/components/MarketsPanel";
+import { ConnectModal } from "@/components/ConnectModal";
+import { Button, EmptyState, Skeleton, Tabs } from "@/components/ui";
 
 type Tab = "open" | "resolving" | "settled" | "mine";
-const TABS: Tab[] = ["open", "resolving", "settled", "mine"];
-const PAGE = 20;
+type Sort = "newest" | "closing" | "pool";
+const INITIAL_MARKETS = 6;
 
 export default function MarketsPage() {
   const [tab, setTab] = useState<Tab>("open");
-  const [page, setPage] = useState(0);
+  const [sort, setSort] = useState<Sort>("newest");
+  const [loaded, setLoaded] = useState(INITIAL_MARKETS);
+  const [connectOpen, setConnectOpen] = useState(false);
   const { address } = useAccount();
-  const { markets, count, isLoading, isError, refetch } = useAllMarkets(200);
+  const { markets, count, isLoading, isError, refetch } = useAllMarkets(loaded);
   const params = useChainParams();
   const nowSec = useNow(5000);
 
-  // Batched position reads for the "Mine" tab (one multicall under the hood).
   const posQuery = useReadContracts({
     contracts: markets.map((m) => ({
       address: CONTRACT_ADDRESS as Address,
@@ -44,7 +47,7 @@ export default function MarketsPage() {
   }, [posQuery.data, markets]);
 
   const filtered = useMemo(() => {
-    return markets.filter((m) => {
+    const list = markets.filter((m) => {
       const phase = phaseOf(m, nowSec, params.lockWindow, params.gracePeriod);
       if (tab === "open") return phase === "betting" || phase === "locked";
       if (tab === "resolving") return phase === "awaiting" || phase === "refundable";
@@ -59,15 +62,22 @@ export default function MarketsPage() {
         hasPosition.has(m.id.toString())
       );
     });
-  }, [markets, tab, nowSec, params.lockWindow, params.gracePeriod, address, hasPosition]);
+    const by =
+      sort === "closing"
+        ? (a: (typeof list)[number], b: (typeof list)[number]) =>
+            Number(a.expiry) - Number(b.expiry)
+        : sort === "pool"
+          ? (a: (typeof list)[number], b: (typeof list)[number]) =>
+              b.totalPool > a.totalPool ? 1 : b.totalPool < a.totalPool ? -1 : 0
+          : (a: (typeof list)[number], b: (typeof list)[number]) =>
+              b.id > a.id ? 1 : b.id < a.id ? -1 : 0;
+    return [...list].sort(by);
+  }, [markets, tab, sort, nowSec, params.lockWindow, params.gracePeriod, address, hasPosition]);
 
-  const pages = Math.max(1, Math.ceil(filtered.length / PAGE));
-  const safePage = Math.min(page, pages - 1);
-  const slice = filtered.slice(safePage * PAGE, safePage * PAGE + PAGE);
 
   if (!isAddressSet(CONTRACT_ADDRESS)) {
     return (
-      <div className="rounded-xl border border-yellow-500/40 bg-yellow-500/10 p-6 text-center">
+      <div className="rounded-2xl border border-yellow-500/40 bg-yellow-500/10 p-6 text-center">
         <p className="font-semibold text-yellow-300">Contract address not set</p>
       </div>
     );
@@ -75,29 +85,61 @@ export default function MarketsPage() {
 
   return (
     <div>
-      <h2 className="text-xl font-bold">Markets ({count})</h2>
-      <div className="mb-3 mt-2 flex gap-1 text-sm">
-        {TABS.map((t) => (
-          <button
-            key={t}
-            onClick={() => {
-              setTab(t);
-              setPage(0);
-            }}
-            className={`rounded-lg px-3 py-1.5 font-semibold capitalize ${
-              tab === t ? "bg-monad text-white" : "bg-white/10 text-gray-300 hover:bg-white/20"
-            }`}
-          >
-            {t === "mine" ? "Mine" : t}
-          </button>
-        ))}
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-black tracking-tight">Markets</h1>
+          <p className="mt-1 text-sm text-slate-400">Pick a story, choose YES or NO, and follow its score.</p>
+        </div>
       </div>
-      {isLoading ? (
-        <SkeletonList />
+      <p className="mt-4 text-sm text-slate-500">{count} markets so far</p>
+      <div className="mb-3 mt-3 flex flex-wrap items-center justify-between gap-2">
+        <Tabs<Tab>
+          ariaLabel="Market filters"
+          value={tab}
+          onChange={(t) => {
+            setTab(t);
+          }}
+          options={[
+            { value: "open", label: "Open" },
+            { value: "resolving", label: "Resolving" },
+            { value: "settled", label: "Settled" },
+            { value: "mine", label: "Mine" },
+          ]}
+        />
+        <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+          Sort
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as Sort)}
+            className="rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-slate-200"
+          >
+            <option value="newest">Newest</option>
+            <option value="closing">Closing soon</option>
+            <option value="pool">Biggest pool</option>
+          </select>
+        </label>
+      </div>
+
+      {tab === "mine" && !address ? (
+        <EmptyState
+          title="Connect to see your markets"
+          body="See the markets you created and the ones you joined."
+          action={
+            <Button variant="primary" onClick={() => setConnectOpen(true)}>
+              Connect wallet
+            </Button>
+          }
+        />
+      ) : isLoading ? (
+        <div className="grid gap-3">
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} className="h-48" />
+          ))}
+        </div>
       ) : (
         <>
           <MarketsPanel
-            markets={slice}
+            markets={filtered}
             count={filtered.length}
             isLoading={false}
             isError={isError || params.isError}
@@ -110,39 +152,18 @@ export default function MarketsPage() {
             resolver={params.resolver}
             nowSec={nowSec}
           />
-          {pages > 1 && (
-            <div className="mt-3 flex items-center justify-center gap-2 text-sm">
-              <button
-                onClick={() => setPage(Math.max(0, safePage - 1))}
-                disabled={safePage === 0}
-                className="rounded-lg bg-white/10 px-3 py-1.5 disabled:opacity-40"
+          {markets.length < count && (
+            <div className="mt-5 text-center">
+              <Button
+                variant="secondary"
+                onClick={() => setLoaded((n) => n + INITIAL_MARKETS)}
               >
-                ← Prev
-              </button>
-              <span className="font-mono tabular-nums">
-                {safePage + 1} / {pages}
-              </span>
-              <button
-                onClick={() => setPage(Math.min(pages - 1, safePage + 1))}
-                disabled={safePage >= pages - 1}
-                className="rounded-lg bg-white/10 px-3 py-1.5 disabled:opacity-40"
-              >
-                Next →
-              </button>
+                Show 6 more markets
+              </Button>
             </div>
           )}
         </>
       )}
-    </div>
-  );
-}
-
-function SkeletonList() {
-  return (
-    <div className="grid animate-pulse gap-3">
-      {[0, 1, 2].map((i) => (
-        <div key={i} className="h-48 rounded-xl bg-white/5" />
-      ))}
     </div>
   );
 }

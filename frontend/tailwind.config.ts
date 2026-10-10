@@ -5,9 +5,15 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        monad: "#836EF9",
-        yes: "#22c55e",
-        no: "#ef4444",
+        monad: "#2563eb",
+        azure: "#0891b2",
+        yes: "#16a34a",
+        no: "#dc2626",
+        ink: "#05070d",
+      },
+      fontFamily: {
+        sans: ["var(--font-sans)"],
+        mono: ["var(--font-mono)"],
       },
     },
   },
