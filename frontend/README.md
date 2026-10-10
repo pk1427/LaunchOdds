@@ -1,4 +1,4 @@
-# LaunchOdds frontend + resolver
+# Storyscore frontend + resolver
 
 Next.js 15 app (App Router, TypeScript, Tailwind v3, wagmi v2, viem v2) for the
 frozen, deployed `LaunchOddsMarket` contract on Monad testnet (chain ID 10143).

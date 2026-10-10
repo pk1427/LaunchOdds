@@ -30,9 +30,9 @@ export function SiteHeader() {
   return (
     <div className="sticky top-3 z-40">
       <div className="flex items-center justify-between gap-2 rounded-full border border-white/10 bg-[#0a0e18]/80 py-2 pl-4 pr-2 shadow-[0_8px_40px_-12px_rgba(0,0,0,0.8)] backdrop-blur-xl">
-        <Link href="/" className="flex items-center gap-2" aria-label="LaunchOdds home">
+        <Link href="/" className="flex items-center gap-2" aria-label="Storyscore home">
           <span className="text-base font-black tracking-tight">
-            Launch<span className="text-monad">Odds</span>
+            Story<span className="text-monad">score</span>
           </span>
         </Link>
         <nav className="hidden items-center gap-1 md:flex" aria-label="Primary">

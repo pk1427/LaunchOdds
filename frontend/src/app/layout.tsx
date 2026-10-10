@@ -6,7 +6,7 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { AutoResolve } from "@/components/AutoResolve";
 import { Reconnect } from "@/lib/wallet";
 
-const SITE = "LaunchOdds — HN launch prediction markets";
+const SITE = "Storyscore — HN story-score prediction markets";
 const DESC =
   "Parimutuel prediction markets on Hacker News launch scores. Monad testnet demo — unaudited, trusted resolver.";
 

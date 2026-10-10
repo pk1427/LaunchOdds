@@ -11,7 +11,7 @@ export function SiteFooter() {
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <span className="flex items-center gap-2">
           <LogoMark size={18} />
-          <span className="font-bold text-slate-300">LaunchOdds</span>
+          <span className="font-bold text-slate-300">Story<span className="text-monad">score</span></span>
         </span>
         {isAddressSet(CONTRACT_ADDRESS) ? (
           <>

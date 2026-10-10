@@ -1,5 +1,5 @@
 export function LogoMark({ size = 28 }: { size?: number }) {
-  // Original mark: three ascending bars with an arrowhead — "launch odds".
+  // Original mark: three ascending bars with an arrowhead — "storyscore".
   return (
     <svg
       width={size}
