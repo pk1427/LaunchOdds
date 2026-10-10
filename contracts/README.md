@@ -1,5 +1,8 @@
 # LaunchOddsMarket
 
+> The user-facing product is branded **Storyscore**. `LaunchOddsMarket` below is
+> the unchanged on-chain protocol contract name, kept for deployment compatibility.
+
 Binary parimutuel prediction market staking native MON, built for Monad Blitz Pune V3.
 
 ## Architecture
