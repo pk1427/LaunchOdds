@@ -9,7 +9,10 @@ import {
 } from "wagmi";
 import { decodeEventLog, keccak256, toHex, type Address } from "viem";
 import { DiscoverPanel } from "@/components/DiscoverPanel";
+import { RequireWallet } from "@/components/RequireWallet";
+import { Button, GlassCard, Pill } from "@/components/ui";
 import { useToasts } from "@/components/Toasts";
+import { localTime } from "@/lib/format";
 import { useStory } from "@/lib/hooks";
 import { launchOddsAbi } from "@/lib/abi";
 import { APP_CHAIN_ID, CONTRACT_ADDRESS, isAddressSet } from "@/lib/config";
@@ -75,12 +78,21 @@ function Sparkline({ points }: { points: { t: number; s: number }[] }) {
 }
 
 export default function CreatePage() {
+  return (
+    <RequireWallet reason="Only connected wallets on Monad Testnet can create markets.">
+      <CreateWizard />
+    </RequireWallet>
+  );
+}
+
+function CreateWizard() {
   const router = useRouter();
   const { push, update } = useToasts();
   const [selected, setSelected] = useState<UsableStory | null>(null);
   const [paste, setPaste] = useState("");
   const [pasteError, setPasteError] = useState<string | null>(null);
   const [pasteBusy, setPasteBusy] = useState(false);
+  const [step, setStep] = useState(1);
   const [delta, setDelta] = useState(5);
   const [deadline, setDeadline] = useState(300);
   const [busy, setBusy] = useState(false);
@@ -254,104 +266,158 @@ export default function CreatePage() {
       ? momentumWarning(momentum, target - liveScore, deadline)
       : null;
 
-  return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      <div>
-        <h2 className="text-xl font-bold">Pick a story</h2>
-        <div className="mt-2 flex gap-2">
-          <input
-            value={paste}
-            onChange={(e) => setPaste(e.target.value)}
-            placeholder="Paste HN link or story ID…"
-            className="flex-1 rounded-lg bg-white/10 px-3 py-2 text-sm"
-          />
-          <button
-            onClick={() => void addByPaste()}
-            disabled={pasteBusy}
-            className="rounded-lg bg-white/10 px-3 py-2 text-sm font-semibold hover:bg-white/20 disabled:opacity-50"
-          >
-            {pasteBusy ? "…" : "Add"}
-          </button>
-        </div>
-        {pasteError && <p className="mt-1 text-sm text-no">{pasteError}</p>}
-        <div className="mt-3">
-          <DiscoverPanel onCreate={setSelected} />
-        </div>
-      </div>
+  const expiryPreview = Math.floor(Date.now() / 1000) + deadline;
 
-      <div>
-        <h2 className="text-xl font-bold">Configure market</h2>
-        {!selected ? (
-          <p className="mt-2 text-sm text-gray-400">
-            Select a story on the left or paste a link to configure the market.
-          </p>
-        ) : (
-          <div className="mt-2 rounded-xl border border-white/10 bg-white/5 p-4">
-            <p className="font-semibold">{selected.title}</p>
-            <p className="mt-1 font-mono text-sm tabular-nums">
-              live baseline: <b>{liveScore ?? "…"}</b>
-            </p>
-            {momentum.ready ? (
-              <div className="mt-1 flex items-center gap-2 text-xs text-gray-300">
-                <Sparkline points={momentum.points} />
-                <span className="font-mono tabular-nums">
-                  {momentum.delta >= 0 ? "+" : ""}
-                  {momentum.delta} in last {momentum.minutes < 1 ? "<1" : Math.round(momentum.minutes)}m
-                </span>
-              </div>
-            ) : (
-              <p className="mt-1 text-xs text-gray-500">
-                Watching score — momentum appears after 2 snapshots.
-              </p>
-            )}
-            <div className="mt-3 text-sm font-semibold">Target +N points</div>
-            <div className="mt-1 flex gap-1">
-              {TARGETS.map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setDelta(t)}
-                  className={`rounded px-3 py-1 font-mono text-sm tabular-nums ${delta === t ? "bg-monad text-white" : "bg-white/10"}`}
-                >
-                  +{t}
-                </button>
-              ))}
-            </div>
-            <div className="mt-3 text-sm font-semibold">Deadline</div>
-            <div className="mt-1 flex gap-1">
-              {DEADLINES.map((d) => (
-                <button
-                  key={d.label}
-                  onClick={() => setDeadline(d.secs)}
-                  className={`rounded px-3 py-1 font-mono text-sm tabular-nums ${deadline === d.secs ? "bg-monad text-white" : "bg-white/10"}`}
-                >
-                  {d.label}
-                </button>
-              ))}
-            </div>
-            {warn && (
-              <p className="mt-2 rounded-lg bg-yellow-500/10 p-2 text-xs text-yellow-300">{warn}</p>
-            )}
-            <div className="mt-3 border-t border-white/10 pt-2 text-sm text-gray-300">
-              <p>
-                Question: Will it reach <b className="text-white">{target}</b> points by deadline?
-              </p>
-              <p className="font-mono text-xs tabular-nums">
-                baseline {liveScore} · target {target} · {deadline}s from the next block
-              </p>
-              <p className="mt-1 break-all font-mono text-xs text-gray-500">
-                metadataHash: {hashPreview}
-              </p>
-            </div>
-            <button
-              onClick={() => void create()}
-              disabled={busy || liveScore === undefined}
-              className="mt-3 w-full rounded-lg bg-monad px-3 py-2 font-semibold text-white hover:brightness-110 disabled:opacity-50"
-            >
-              {busy ? "Confirming…" : "Create market"}
-            </button>
+  return (
+    <div className="mx-auto max-w-4xl">
+      <h2 className="text-2xl font-black">Create a market</h2>
+      <ol className="mt-3 flex gap-2" aria-label="Create steps">
+        {["Choose launch", "Target and deadline", "Review and confirm"].map((label, i) => {
+          const n = i + 1;
+          const active = step === n;
+          const done = step > n;
+          return (
+            <li key={label} className="flex flex-1 items-center gap-2">
+              <span
+                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full font-mono text-xs font-bold ${
+                  done ? "bg-yes text-black" : active ? "bg-monad text-white" : "bg-white/10 text-slate-400"
+                }`}
+                aria-current={active ? "step" : undefined}
+              >
+                {n}
+              </span>
+              <span className={`text-sm ${active ? "font-semibold text-white" : "text-slate-400"}`}>
+                {label}
+              </span>
+              {n < 3 && <span className="h-px flex-1 bg-white/10" />}
+            </li>
+          );
+        })}
+      </ol>
+
+      {step === 1 && (
+        <div className="mt-4">
+          <div className="flex gap-2">
+            <input
+              value={paste}
+              onChange={(e) => setPaste(e.target.value)}
+              placeholder="Paste HN link or story ID…"
+              aria-label="HN link or story ID"
+              className="flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm"
+            />
+            <Button onClick={() => void addByPaste()} disabled={pasteBusy}>
+              {pasteBusy ? "…" : "Add"}
+            </Button>
           </div>
-        )}
-      </div>
+          {pasteError && <p className="mt-1 text-sm text-no">{pasteError}</p>}
+          {selected && (
+            <GlassCard className="mt-3 border-monad/40 p-3">
+              <p className="text-sm">
+                Selected: <b>{selected.title}</b>{" "}
+                <span className="font-mono tabular-nums text-slate-400">
+                  ({liveScore ?? "…"} pts)
+                </span>
+              </p>
+            </GlassCard>
+          )}
+          <div className="mt-3">
+            <DiscoverPanel onCreate={setSelected} />
+          </div>
+          <div className="mt-3 flex justify-end">
+            <Button variant="primary" disabled={!selected} onClick={() => setStep(2)}>
+              Continue →
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {step === 2 && selected && (
+        <GlassCard className="mt-4">
+          <p className="font-semibold">{selected.title}</p>
+          <p className="mt-1 font-mono text-sm tabular-nums">
+            live baseline: <b>{liveScore ?? "…"}</b>
+          </p>
+          {momentum.ready ? (
+            <div className="mt-1 flex items-center gap-2 text-xs text-slate-300">
+              <Sparkline points={momentum.points} />
+              <span className="font-mono tabular-nums">
+                {momentum.delta >= 0 ? "+" : ""}
+                {momentum.delta} in last {momentum.minutes < 1 ? "<1" : Math.round(momentum.minutes)}m
+              </span>
+            </div>
+          ) : (
+            <p className="mt-1 text-xs text-slate-500">
+              Watching score — momentum appears after 2 snapshots.
+            </p>
+          )}
+          <div className="mt-3 text-sm font-semibold">Target +N points</div>
+          <div className="mt-1 flex flex-wrap gap-1">
+            {TARGETS.map((t) => (
+              <button
+                key={t}
+                onClick={() => setDelta(t)}
+                aria-pressed={delta === t}
+                className={`rounded-lg px-3 py-1 font-mono text-sm tabular-nums ${delta === t ? "bg-monad text-white" : "bg-white/10"}`}
+              >
+                +{t}
+              </button>
+            ))}
+          </div>
+          <div className="mt-3 text-sm font-semibold">Deadline</div>
+          <div className="mt-1 flex flex-wrap gap-1">
+            {DEADLINES.map((d) => (
+              <button
+                key={d.label}
+                onClick={() => setDeadline(d.secs)}
+                aria-pressed={deadline === d.secs}
+                className={`rounded-lg px-3 py-1 font-mono text-sm tabular-nums ${deadline === d.secs ? "bg-monad text-white" : "bg-white/10"}`}
+              >
+                {d.label}
+              </button>
+            ))}
+          </div>
+          {warn && (
+            <p className="mt-2 rounded-xl bg-yellow-500/10 p-2 text-xs text-yellow-300">{warn}</p>
+          )}
+          <div className="mt-4 flex justify-between">
+            <Button variant="ghost" onClick={() => setStep(1)}>
+              ← Back
+            </Button>
+            <Button variant="primary" disabled={liveScore === undefined} onClick={() => setStep(3)}>
+              Review →
+            </Button>
+          </div>
+        </GlassCard>
+      )}
+
+      {step === 3 && meta && (
+        <GlassCard className="mt-4">
+          <Pill tone="accent">Review</Pill>
+          <p className="mt-2 font-semibold">{meta.question}</p>
+          <dl className="mt-2 space-y-1 font-mono text-sm tabular-nums text-slate-300">
+            <div>baseline: {meta.baselineScore}</div>
+            <div>target: {meta.targetScore}</div>
+            <div>
+              expiry: ~{localTime(expiryPreview)} ({deadline}s from the next block)
+            </div>
+          </dl>
+          <p className="mt-2 break-all font-mono text-xs text-slate-500">
+            metadataHash: {hashPreview}
+          </p>
+          <p className="mt-2 text-xs text-slate-500">
+            Expiry is computed from the latest block timestamp at submit time, not your
+            browser clock.
+          </p>
+          <div className="mt-4 flex justify-between">
+            <Button variant="ghost" onClick={() => setStep(2)}>
+              ← Back
+            </Button>
+            <Button variant="primary" disabled={busy} onClick={() => void create()}>
+              {busy ? "Confirming…" : "Create market"}
+            </Button>
+          </div>
+        </GlassCard>
+      )}
     </div>
   );
 }
