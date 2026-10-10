@@ -1,0 +1,10 @@
+# Foundry artifacts and secrets — never commit these.
+broadcast/
+cache/
+out/
+.env
+.env.*
+!.env.example
+# Foundry keystores
+*.keystore
+keystore/
