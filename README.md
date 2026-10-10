@@ -6,7 +6,7 @@ A prediction-market application for Hacker News story-score milestones on Monad.
 [![Monad Testnet](https://img.shields.io/badge/network-Monad%20Testnet-200052)](https://docs.monad.xyz/developer-essentials/testnet.md)
 [![Next.js](https://img.shields.io/badge/frontend-Next.js%2015-black?logo=next.js)](https://nextjs.org)
 
-- **Repository:** https://github.com/pk1427/LaunchOdds
+- **Repository:** https://github.com/pk1427/StoryScore
 - **Live app:** not yet configured — no public deployment URL was found in this repository. This must be supplied before the README is complete for submission. (`http://localhost:3000` is local development only, not a demo URL.)
 - **Contract (Monad Testnet):** [`0xD528703a9A6eF6Cbb04d6B1B7d79D5C4ce126187`](https://testnet.monadvision.com/address/0xD528703a9A6eF6Cbb04d6B1B7d79D5C4ce126187)
 - **Deploy transaction:** [`0x6d62ca295d46affc5a7c695b26c565438a01512bb97294b978633ece3e71b705`](https://testnet.monadvision.com/tx/0x6d62ca295d46affc5a7c695b26c565438a01512bb97294b978633ece3e71b705)
